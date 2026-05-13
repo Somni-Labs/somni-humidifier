@@ -4,3 +4,5 @@ __pycache__/
 *.3mf
 *.gcode
 .DS_Store
+.venv/
+.claude/

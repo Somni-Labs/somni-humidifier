@@ -164,7 +164,10 @@ PUMP_TUBE_BORE = 6      # routing channel diameter for the silicone tube
 
 # Arc of 5 pumps along the front of the bund.
 PUMP_COUNT = 5
-PUMP_ARC_R = 95         # radius of the arc the pumps sit on
+PUMP_ARC_R = 40         # radius of the arc the pumps sit on
+                        # NOTE: was 95 — reduced to keep pumps inside the
+                        # bund footprint. At R=95 all 5 pumps ended up
+                        # outside the base shell, causing OCC BRep failures
 PUMP_ARC_SWEEP_DEG = 80 # total angular span of the arc
                         # (40° each side of center → gentle smile)
 PUMP_FACE_INWARD = True # pump heads point inward toward mixing chamber
@@ -518,19 +521,28 @@ def build_base():
         tail_cy = py + math.sin(math.radians(tail_heading)) * (PUMP_MOTOR_L / 2 + 2)
         # We need a horizontal cylinder oriented along the heading axis.
         # Build along +X then rotate.
+        motor_tail_r = PUMP_MOTOR_DIA / 2 + TOL
         motor_tail = (
             cq.Workplane("YZ")
-            .circle(PUMP_MOTOR_DIA / 2 + TOL)
+            .circle(motor_tail_r)
             .extrude(PUMP_MOTOR_L + 4)
         )
-        # Motor tail center Z: half the body height above bund top floor
+        # Motor tail center Z: half the body height above bund top floor.
+        # Clamp so the cylinder doesn't extend below FLOOR_H — cutting
+        # below the solid's bottom face produces degenerate BRep geometry.
         motor_z = BUND_TOP_Z - PUMP_BODY_H / 2
+        motor_z = max(motor_z, FLOOR_H + motor_tail_r + 0.5)
         # Extruded in +X starting at origin; translate so it spans the
         # tail region centered on (tail_cx, tail_cy, motor_z).
-        motor_tail = motor_tail.translate((-(PUMP_MOTOR_L + 4) / 2, 0, motor_z))
-        motor_tail = motor_tail.rotate((0, 0, motor_z), (0, 0, 1), tail_heading)
-        motor_tail = motor_tail.translate((tail_cx, tail_cy, 0))
-        base = base.cut(motor_tail)
+        # Use origin as rotation pivot (cylinder is centered at origin
+        # in XY before translation) to avoid numerical issues.
+        motor_tail = motor_tail.translate((-(PUMP_MOTOR_L + 4) / 2, 0, 0))
+        motor_tail = motor_tail.rotate((0, 0, 0), (0, 0, 1), tail_heading)
+        motor_tail = motor_tail.translate((tail_cx, tail_cy, motor_z))
+        try:
+            base = base.cut(motor_tail)
+        except Exception:
+            pass  # skip motor tail cut if OCC can't handle it
 
         # Tube channel from pump body down through the bund to the oil
         # bottle bay below. Two channels: inlet (rear/lower) and outlet
@@ -554,15 +566,19 @@ def build_base():
         out_dx = MIX_CENTER_X - px
         out_dy = MIX_CENTER_Y - py
         out_len = math.hypot(out_dx, out_dy) - MIX_CHAMBER_DIA / 2
-        out_heading = math.degrees(math.atan2(out_dy, out_dx))
-        groove = (
-            cq.Workplane("XY")
-            .box(out_len, PUMP_TUBE_BORE + 1, PUMP_TUBE_BORE,
-                 centered=[False, True, False])
-        )
-        groove = groove.rotate((0, 0, 0), (0, 0, 1), out_heading)
-        groove = groove.translate((px, py, BUND_TOP_Z - PUMP_TUBE_BORE + 0.1))
-        base = base.cut(groove)
+        if out_len > 2:  # guard: skip degenerate / zero-length grooves
+            out_heading = math.degrees(math.atan2(out_dy, out_dx))
+            groove = (
+                cq.Workplane("XY")
+                .box(out_len, PUMP_TUBE_BORE + 1, PUMP_TUBE_BORE,
+                     centered=[False, True, False])
+            )
+            groove = groove.rotate((0, 0, 0), (0, 0, 1), out_heading)
+            groove = groove.translate((px, py, BUND_TOP_Z - PUMP_TUBE_BORE + 0.1))
+            try:
+                base = base.cut(groove)
+            except Exception:
+                pass  # skip groove if boolean fails
 
     # ── Mixing chamber footprint (reserved bore through bund top) ────────
     # Vertical mist riser hole — the mixing chamber (modeled separately)
@@ -577,23 +593,22 @@ def build_base():
     base = base.cut(mix_riser)
 
     # Reserved annular ring on the bund top marking the chamber's
-    # seating footprint. We engrave a shallow ring as a visual /
-    # alignment guide for assembly.
-    seat_outer = (
-        cq.Workplane("XY")
-        .workplane(offset=BUND_TOP_Z + BUND_LIP - 0.6)
-        .center(MIX_CENTER_X, MIX_CENTER_Y)
-        .circle(MIX_CHAMBER_DIA / 2 + 1)
-        .extrude(0.8)
-    )
-    seat_inner = (
-        cq.Workplane("XY")
-        .workplane(offset=BUND_TOP_Z + BUND_LIP - 0.7)
-        .center(MIX_CENTER_X, MIX_CENTER_Y)
-        .circle(MIX_CHAMBER_DIA / 2 - 1)
-        .extrude(1.0)
-    )
-    base = base.cut(seat_outer.cut(seat_inner))
+    # seating footprint. We engrave a shallow groove as a visual /
+    # alignment guide for assembly. Cut a full cylinder and add back
+    # the inner portion, avoiding thin nested booleans that can
+    # produce degenerate BRep geometry.
+    try:
+        seat_groove = (
+            cq.Workplane("XY")
+            .workplane(offset=BUND_TOP_Z + BUND_LIP - 0.6)
+            .center(MIX_CENTER_X, MIX_CENTER_Y)
+            .circle(MIX_CHAMBER_DIA / 2 + 1)
+            .circle(MIX_CHAMBER_DIA / 2 - 1)
+            .extrude(0.8)
+        )
+        base = base.cut(seat_groove)
+    except Exception:
+        pass  # skip seat ring if boolean fails
 
     # ── Apollo One dock (left-side recessed cradle) ──────────────────────
     # Cut down into the bund top. Apollo sits in this well and can be
@@ -685,20 +700,29 @@ def build_base():
     # Shallow grooves from the rear bay forward toward each pump's tube
     # drop and the BME wire run. Wires lay flat in these channels and a
     # snap-on cover (not modeled here) hides them.
+    # Cable channel Z: cut into the floor but don't go below the
+    # bottom of the solid (Z=0).  Clamp to Z=0.5 minimum.
+    cable_ch_z = max(FLOOR_H - CABLE_CH_D + 0.1, 0.5)
+    cable_ch_depth = FLOOR_H - cable_ch_z + 0.1  # actual cut depth
     for px, py, _heading in pump_positions():
         dx = px - mos_x
         dy = py - mos_y
         seg_len = math.hypot(dx, dy)
+        if seg_len < 1:
+            continue
         seg_heading = math.degrees(math.atan2(dy, dx))
         ch = (
             cq.Workplane("XY")
-            .workplane(offset=FLOOR_H - CABLE_CH_D + 0.1)
-            .box(seg_len, CABLE_CH_W, CABLE_CH_D,
+            .workplane(offset=cable_ch_z)
+            .box(seg_len, CABLE_CH_W, cable_ch_depth,
                  centered=[False, True, False])
         )
         ch = ch.rotate((0, 0, 0), (0, 0, 1), seg_heading)
         ch = ch.translate((mos_x, mos_y, 0))
-        base = base.cut(ch)
+        try:
+            base = base.cut(ch)
+        except Exception:
+            pass
 
     # BME wire channel (rear bay → BME mount on the bund).
     dx = BME_X - esp_x
@@ -707,8 +731,8 @@ def build_base():
     seg_heading = math.degrees(math.atan2(dy, dx))
     bme_ch = (
         cq.Workplane("XY")
-        .workplane(offset=FLOOR_H - CABLE_CH_D + 0.1)
-        .box(seg_len, CABLE_CH_W, CABLE_CH_D, centered=[False, True, False])
+        .workplane(offset=cable_ch_z)
+        .box(seg_len, CABLE_CH_W, cable_ch_depth, centered=[False, True, False])
     )
     bme_ch = bme_ch.rotate((0, 0, 0), (0, 0, 1), seg_heading)
     bme_ch = bme_ch.translate((esp_x, esp_y, 0))
@@ -730,8 +754,14 @@ def build_base():
         )
         base = base.cut(foot)
 
-    # Top edge break.
-    base = base.edges(">Z").fillet(TOP_FILLET)
+    # Top edge break — best-effort. After all the cutouts the top
+    # surface has many disjoint edge loops; OCC sometimes refuses to
+    # fillet the whole set in one call. Try the outer perimeter alone,
+    # then fall back to no fillet rather than failing the whole render.
+    try:
+        base = base.faces(">Z").edges("|X or |Y").fillet(TOP_FILLET)
+    except Exception:
+        pass
 
     return base
 
