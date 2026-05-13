@@ -17,18 +17,31 @@ Architecture (top to bottom):
      Top surface has tube routing channels leading to pump headers.
   2. THREADED RECEIVERS — 5 printed sockets on the underside of the plate.
      Each has internal threads matching the bottle neck (18-415 / 18-400).
-     A short tube stub protrudes upward through the plate into a routing
-     channel on the top surface.
+     A drip-catch basin surrounds the bore to contain leaks during bottle
+     swaps. A short tube stub protrudes upward through the plate into a
+     routing channel on the top surface.
   3. BOTTLES — hang inverted beneath the plate. The bottle body and label
      face downward and remain fully visible.
   4. TUBE ROUTING — silicone tubes connect each receiver stub (top of plate)
      to the corresponding peristaltic pump elsewhere in the enclosure.
+     Channels fan out radially to avoid crossover.
 
 Why inverted:
   - Gravity feeds oil to the pump — no dip tube reaching the bottle bottom.
   - Screw-in mounting = secure, vibration-proof, one-handed swap.
   - Labels face outward and are completely unobstructed.
   - No wells, collars, or windows needed — simpler to print.
+
+O-ring seal:
+  Each receiver has a groove at the top (plate junction) sized for an 18 mm ID
+  o-ring. The bottle shoulder compresses it when fully screwed in, preventing
+  slow oil seepage around the threads.
+
+Drip-catch basin:
+  A shallow annular basin is recessed into the underside of the plate around
+  each receiver bore. If oil drips during a bottle swap, it pools here instead
+  of running across the plate. A small weep hole lets captured oil drain back
+  toward the bore once a new bottle is installed.
 
 Standard 5ml Essential Oil Bottle Specifications:
   - Body diameter: ~22 mm
@@ -96,6 +109,27 @@ ROUTE_EXIT_Y = -(ARC_RADIUS + PLATE_MARGIN + 5.0)  # where tubes exit toward pum
 MOUNT_HOLE_DIA = 3.2       # M3 clearance
 MOUNT_HOLE_COUNT = 4
 MOUNT_HOLE_RADIUS = ARC_RADIUS + PLATE_MARGIN - 5.0  # near plate edge
+
+# --- O-ring seal (sits at top of receiver bore) ---
+# Standard 18 mm ID o-ring (18 × 2 mm cross-section, Buna-N / nitrile)
+# The bottle shoulder compresses it when fully screwed in.
+ORING_ID = 18.0            # matches bottle neck OD
+ORING_CS = 2.0             # cross-section diameter
+ORING_GROOVE_DEPTH = 1.5   # mm — ~75% of CS for proper compression
+ORING_GROOVE_WIDTH = ORING_CS + 0.3  # slightly wider than CS for fit
+
+# --- Drip-catch basin (underside of plate, around each receiver) ---
+# Catches oil that may drip when swapping bottles.
+DRIP_BASIN_ID = RECEIVER_OD + 1.0   # just outside receiver body
+DRIP_BASIN_OD = RECEIVER_OD + 10.0  # outer rim of catch basin
+DRIP_BASIN_DEPTH = 2.0              # mm recess into underside of plate
+DRIP_WEEP_DIA = 1.5                 # mm — small hole to drain basin back to bore
+
+# --- Position labels ---
+# Embossed numbers 1-5 on the plate top surface near each receiver.
+LABEL_FONT_SIZE = 6.0      # mm — height of embossed number
+LABEL_DEPTH = 0.6           # mm — extrusion depth (raised text on surface)
+LABEL_OFFSET = RECEIVER_OD / 2 + 6.0  # mm — distance from receiver center
 
 # --- Cosmetic ---
 FILLET_R = 1.5
@@ -182,6 +216,32 @@ def create_single_receiver(x, y):
     if thread_ridges is not None:
         body = body.union(thread_ridges)
 
+    # --- O-ring groove (at top of receiver, where bottle shoulder seats) ---
+    # Annular groove cut into the top face of the receiver (Z=0 plane)
+    # so the o-ring sits flush and gets compressed by the bottle shoulder.
+    oring_groove_r = ORING_ID / 2 + ORING_CS / 2  # groove centerline radius
+    oring_groove = (cq.Workplane("XY", origin=(x, y, 0))
+                    .circle(oring_groove_r + ORING_GROOVE_WIDTH / 2)
+                    .circle(oring_groove_r - ORING_GROOVE_WIDTH / 2)
+                    .extrude(-ORING_GROOVE_DEPTH))
+    body = body.cut(oring_groove)
+
+    # --- Drip-catch basin (underside of plate around receiver) ---
+    # Shallow annular recess to catch drips during bottle swaps.
+    drip_basin = (cq.Workplane("XY", origin=(x, y, 0))
+                  .circle(DRIP_BASIN_OD / 2)
+                  .circle(DRIP_BASIN_ID / 2)
+                  .extrude(-DRIP_BASIN_DEPTH))
+    body = body.cut(drip_basin)
+
+    # Weep hole — lets captured oil drain back into the bore once a
+    # bottle is re-installed and the system is sealed again.
+    weep_offset_r = (DRIP_BASIN_ID + DRIP_BASIN_OD) / 4  # midway in basin
+    weep_hole = (cq.Workplane("XY", origin=(x + weep_offset_r, y, -DRIP_BASIN_DEPTH - 1))
+                 .circle(DRIP_WEEP_DIA / 2)
+                 .extrude(DRIP_BASIN_DEPTH + PLATE_THICKNESS + 2))
+    body = body.cut(weep_hole)
+
     # --- Oil bore (through the plate) ---
     bore = (cq.Workplane("XY", origin=(x, y, -1))
             .circle(TUBE_BORE / 2)
@@ -225,40 +285,81 @@ def create_all_receivers():
 
 def create_routing_channels():
     """Cut channels into the top surface of the plate to guide silicone
-    tubing from each tube stub toward the pump exit edge."""
+    tubing from each tube stub toward the pump exit edge.
+
+    Routing strategy — radial fan-out (no crossovers):
+      Each channel runs radially inward from the receiver toward the plate
+      center, then turns and runs straight toward the exit edge (-Y).
+      Because receivers are already arranged in an arc, radial-inward paths
+      naturally converge without crossing.  The final parallel run keeps
+      tubes neatly spaced for pump connection.
+    """
     channels = None
+    z_bot = PLATE_THICKNESS - ROUTE_CHANNEL_DEPTH
+    z_height = ROUTE_CHANNEL_DEPTH + 0.1  # slight overcut for clean boolean
 
     positions = receiver_positions()
+
+    # Exit positions — evenly spaced along the exit edge
+    exit_spacing = ROUTE_CHANNEL_WIDTH + 3.0
+    exit_x_center = 0.0
+
     for i, (rx, ry, _angle) in enumerate(positions):
-        # Each channel runs from the tube stub position straight toward
-        # the exit edge (negative Y).  Simple straight slot for v1.
-        # TODO: Add gentle curves to avoid crossover for adjacent channels
-        exit_x = (i - (BOTTLE_COUNT - 1) / 2) * (ROUTE_CHANNEL_WIDTH + 3.0)
+        exit_x = exit_x_center + (i - (BOTTLE_COUNT - 1) / 2) * exit_spacing
 
-        # Vertical slot from stub to exit — two-segment path:
-        #   stub (rx, ry) → bend point (exit_x, ry - 5) → exit (exit_x, exit_y)
+        # --- Segment 1: radial run from receiver toward center ---
+        # Run from (rx, ry) toward the plate center, stopping partway
+        # so we don't collide with other channels near the middle.
+        radial_stop_r = ARC_RADIUS * 0.35  # how far inward to come
+        angle_rad = math.atan2(rx, ry)  # angle from center to receiver
+        mid_x = radial_stop_r * math.sin(angle_rad)
+        mid_y = radial_stop_r * math.cos(angle_rad)
 
-        # Segment 1: stub to bend
-        seg1_dx = exit_x - rx
-        seg1_dy = -5.0
+        seg1_dx = mid_x - rx
+        seg1_dy = mid_y - ry
         seg1_len = math.sqrt(seg1_dx**2 + seg1_dy**2)
         seg1_angle = math.degrees(math.atan2(seg1_dx, seg1_dy))
 
-        ch1 = (cq.Workplane("XY", origin=(rx, ry, PLATE_THICKNESS - ROUTE_CHANNEL_DEPTH))
-               .rect(ROUTE_CHANNEL_WIDTH, seg1_len + ROUTE_CHANNEL_WIDTH)
-               .extrude(ROUTE_CHANNEL_DEPTH + 0.1))  # slight overcut to ensure clean subtraction
-        ch1 = ch1.rotate((rx, ry, 0), (rx, ry, 1), -seg1_angle)
+        if seg1_len > 1.0:
+            ch1 = (cq.Workplane("XY", origin=(
+                       rx + seg1_dx / 2, ry + seg1_dy / 2, z_bot))
+                   .rect(ROUTE_CHANNEL_WIDTH, seg1_len + ROUTE_CHANNEL_WIDTH)
+                   .extrude(z_height))
+            ch1 = ch1.rotate(
+                (rx + seg1_dx / 2, ry + seg1_dy / 2, 0),
+                (rx + seg1_dx / 2, ry + seg1_dy / 2, 1),
+                -(seg1_angle - 90))
+        else:
+            ch1 = None
 
-        # Segment 2: bend to exit edge (straight down in -Y)
-        bend_y = ry - 5.0
-        seg2_len = abs(bend_y - ROUTE_EXIT_Y)
+        # --- Segment 2: jog from radial end to the exit column ---
+        jog_dx = exit_x - mid_x
+        jog_dy = -5.0
+        jog_len = math.sqrt(jog_dx**2 + jog_dy**2)
+        jog_angle = math.degrees(math.atan2(jog_dx, jog_dy))
 
-        ch2 = (cq.Workplane("XY", origin=(exit_x, bend_y - seg2_len / 2,
-                                          PLATE_THICKNESS - ROUTE_CHANNEL_DEPTH))
-               .rect(ROUTE_CHANNEL_WIDTH, seg2_len)
-               .extrude(ROUTE_CHANNEL_DEPTH + 0.1))
+        ch2 = (cq.Workplane("XY", origin=(
+                   mid_x + jog_dx / 2, mid_y + jog_dy / 2, z_bot))
+               .rect(ROUTE_CHANNEL_WIDTH, jog_len + ROUTE_CHANNEL_WIDTH)
+               .extrude(z_height))
+        ch2 = ch2.rotate(
+            (mid_x + jog_dx / 2, mid_y + jog_dy / 2, 0),
+            (mid_x + jog_dx / 2, mid_y + jog_dy / 2, 1),
+            -(jog_angle - 90))
 
-        seg = ch1.union(ch2)
+        # --- Segment 3: straight run to exit edge (-Y) ---
+        run_start_y = mid_y + jog_dy
+        run_len = abs(run_start_y - ROUTE_EXIT_Y)
+
+        ch3 = (cq.Workplane("XY", origin=(
+                   exit_x, run_start_y - run_len / 2, z_bot))
+               .rect(ROUTE_CHANNEL_WIDTH, run_len)
+               .extrude(z_height))
+
+        # Merge segments
+        seg = ch2.union(ch3)
+        if ch1 is not None:
+            seg = ch1.union(seg)
 
         if channels is None:
             channels = seg
@@ -283,6 +384,46 @@ def create_mounting_holes():
         else:
             holes = holes.union(hole)
     return holes
+
+
+def create_position_labels():
+    """Create raised position numbers (1-5) on the plate top surface near
+    each receiver so the user knows which oil goes where.
+
+    Uses simple geometric digit shapes since CadQuery text support varies
+    across environments.  Each number is a small raised dot pattern:
+      1 = single dot, 2 = two dots, etc.  Braille-style — works on any
+      printer, no font dependencies, tactile for low-light use.
+    """
+    labels = None
+    positions = receiver_positions()
+
+    for i, (rx, ry, angle_deg) in enumerate(positions):
+        count = i + 1  # positions 1-5
+        # Place dots in a radial line outward from the receiver center
+        angle_rad = math.radians(angle_deg)
+        base_x = rx + LABEL_OFFSET * math.sin(angle_rad)
+        base_y = ry + LABEL_OFFSET * math.cos(angle_rad)
+
+        for d in range(count):
+            # Stack dots along the tangent direction
+            tangent_x = math.cos(angle_rad)
+            tangent_y = -math.sin(angle_rad)
+            offset = (d - (count - 1) / 2) * 3.0  # 3mm between dots
+
+            dot_x = base_x + offset * tangent_x
+            dot_y = base_y + offset * tangent_y
+
+            dot = (cq.Workplane("XY", origin=(dot_x, dot_y, PLATE_THICKNESS))
+                   .circle(1.2)
+                   .extrude(LABEL_DEPTH))
+
+            if labels is None:
+                labels = dot
+            else:
+                labels = labels.union(dot)
+
+    return labels
 
 
 def create_reference_bottle(x, y):
@@ -317,7 +458,8 @@ def create_reference_bottle(x, y):
 # =============================================================================
 
 def assemble_oil_carousel():
-    """Full carousel: plate + receivers + routing channels + mounting holes."""
+    """Full carousel: plate + receivers + routing channels + mounting holes
+    + position labels."""
     plate = create_plate()
     receivers = create_all_receivers()
 
@@ -333,7 +475,12 @@ def assemble_oil_carousel():
     if holes:
         assembly = assembly.cut(holes)
 
-    # Cosmetic fillets
+    # Add raised position labels (dot-count pattern)
+    labels = create_position_labels()
+    if labels:
+        assembly = assembly.union(labels)
+
+    # Cosmetic fillets on plate rim
     try:
         assembly = assembly.faces(">Z").edges().fillet(FILLET_R)
     except Exception:
@@ -376,19 +523,26 @@ print(f"  Plate thickness: {PLATE_THICKNESS:.1f} mm")
 print(f"  Receiver OD: {RECEIVER_OD:.1f} mm, length: {RECEIVER_LENGTH:.1f} mm")
 print(f"  Thread: {BOTTLE_NECK_OD:.0f}-415, pitch {THREAD_PITCH:.2f} mm, "
       f"depth {THREAD_DEPTH:.1f} mm")
+print(f"  O-ring seal: {ORING_ID:.0f} × {ORING_CS:.0f} mm (groove depth "
+      f"{ORING_GROOVE_DEPTH:.1f} mm)")
+print(f"  Drip basin: {DRIP_BASIN_OD:.0f} mm OD × {DRIP_BASIN_DEPTH:.0f} mm deep, "
+      f"weep hole {DRIP_WEEP_DIA:.1f} mm")
 print(f"  Tube stub: {TUBE_STUB_OD:.1f} mm OD, {TUBE_STUB_HEIGHT:.0f} mm tall, "
       f"bore {TUBE_BORE:.1f} mm")
-print(f"  Routing channels: {ROUTE_CHANNEL_WIDTH:.1f} × {ROUTE_CHANNEL_DEPTH:.1f} mm")
+print(f"  Routing: radial fan-out, {ROUTE_CHANNEL_WIDTH:.1f} × "
+      f"{ROUTE_CHANNEL_DEPTH:.1f} mm channels")
+print(f"  Position labels: dot-count pattern (tactile, 1-5)")
 print()
 print("User workflow:")
 print("  1. Remove bottle cap")
-print("  2. Screw bottle neck up into receiver")
+print("  2. Screw bottle neck up into receiver (o-ring seals)")
 print("  3. Oil gravity-feeds through bore → tube stub → silicone tube → pump")
-print("  4. To swap: unscrew, replace, done")
+print("  4. To swap: unscrew (drip basin catches any drips), replace, done")
 print()
 print("TODO:")
 print("  - Measure actual bottle threads with calipers")
 print("  - Test-print a single receiver for thread engagement")
 print("  - Evaluate bayonet-lock if FDM threads are too coarse")
-print("  - Add drip-catch lip around each receiver bore")
-print("  - Add position numbers (1-5) embossed on plate edge")
+print("  - Source 18 × 2 mm o-rings (nitrile, oil-resistant)")
+print("  - Test drip basin capacity and weep hole flow")
+print("  - Verify position dot legibility after printing")
