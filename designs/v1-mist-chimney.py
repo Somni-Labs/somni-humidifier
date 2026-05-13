@@ -168,11 +168,11 @@ show_object(mist_chimney, name="mist_chimney_complete")
 
 # Show individual components for reference
 show_object(create_main_chimney(), name="chimney_tube",
-           options={"alpha": 0.7, "color": "lightblue"})
+           options={"alpha": 0.7, "color": (0.68, 0.85, 0.90)})
 show_object(create_snap_connection().translate((60, 0, 0)), name="snap_connection",
-           options={"alpha": 0.7, "color": "lightgreen"})
+           options={"alpha": 0.7, "color": (0.56, 0.93, 0.56)})
 show_object(create_directional_nozzle().translate((120, 0, 0)), name="outlet_nozzle",
-           options={"alpha": 0.7, "color": "orange"})
+           options={"alpha": 0.7, "color": (1.0, 0.65, 0.0)})
 
 # Display design specifications as a reference object
 specs_text = f"""Design Specifications:
@@ -204,7 +204,7 @@ reference_plate = (cq.Workplane("XY", origin=(0, -100, 0))
                    .box(80, 60, 2))
 
 show_object(reference_plate, name="design_specifications",
-           options={"alpha": 0.3, "color": "gray"})
+           options={"alpha": 0.3, "color": (0.5, 0.5, 0.5)})
 
 print("Mist chimney and outlet nozzle design generated successfully!")
 print("Key features:")

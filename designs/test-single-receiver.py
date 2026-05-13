@@ -202,7 +202,7 @@ body = (cq.Workplane("XY", origin=(0, 0, -RECEIVER_LENGTH - neck_h - 3))
 ghost_bottle = neck.union(shoulder).union(body)
 
 show_object(ghost_bottle, name="ghost_bottle",
-           options={"alpha": 0.35, "color": "darkorange"})
+           options={"alpha": 0.35, "color": (1.0, 0.55, 0.0)})
 
 
 print("=" * 50)
