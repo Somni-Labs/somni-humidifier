@@ -1,27 +1,40 @@
 """Essential Oil Bottle Carousel Design v1.
 
-A section of the humidifier enclosure that holds 5 standard 5ml essential oil
-bottles upright in a semicircular arrangement. Each bottle has a dip tube
-inserted through the cap, connected via silicone tubing to its dedicated
-peristaltic pump.
+Inverted-bottle carousel for the smart humidifier. Bottles screw UP into
+threaded receivers in a base plate and hang cap-side-up beneath it. Gravity
+feeds oil down through a short tube stub in each receiver, into silicone
+tubing that routes to a dedicated peristaltic pump.
 
-This component is designed to integrate with the main humidifier base and
-provide easy access for bottle swapping while maintaining clean tube routing.
+User experience:
+  1. Grab a standard 5ml essential oil bottle (cap already removed).
+  2. Screw its neck threads into one of the 5 printed receivers on the
+     underside of the carousel plate.
+  3. Done — gravity feeds oil, the pump meters it.
+  To swap: unscrew, screw in a new bottle.
 
-Key Features:
-- 5 cylindrical bottle wells sized for standard 5ml bottles (~22mm dia x 55mm)
-- Threaded cap interface or friction-fit collar for secure bottle mounting
-- Dip tube pass-through holes for 3mm silicone tubing
-- Tube routing channels from each well to corresponding pumps below
-- Cutaway windows for bottle label visibility
-- Quick-swap design for easy bottle replacement
-- Semicircular arrangement for visual appeal and space efficiency
+Architecture (top to bottom):
+  1. CAROUSEL PLATE — flat structural plate that mounts inside the enclosure.
+     Top surface has tube routing channels leading to pump headers.
+  2. THREADED RECEIVERS — 5 printed sockets on the underside of the plate.
+     Each has internal threads matching the bottle neck (18-415 / 18-400).
+     A short tube stub protrudes upward through the plate into a routing
+     channel on the top surface.
+  3. BOTTLES — hang inverted beneath the plate. The bottle body and label
+     face downward and remain fully visible.
+  4. TUBE ROUTING — silicone tubes connect each receiver stub (top of plate)
+     to the corresponding peristaltic pump elsewhere in the enclosure.
+
+Why inverted:
+  - Gravity feeds oil to the pump — no dip tube reaching the bottle bottom.
+  - Screw-in mounting = secure, vibration-proof, one-handed swap.
+  - Labels face outward and are completely unobstructed.
+  - No wells, collars, or windows needed — simpler to print.
 
 Standard 5ml Essential Oil Bottle Specifications:
-- Body diameter: ~22mm
-- Total height: ~55mm (with cap)
-- Neck outer diameter: ~18mm
-- Cap threading: typically 18-400 or 18-415 (to be measured)
+  - Body diameter: ~22 mm
+  - Total height:  ~55 mm (with cap)
+  - Neck OD:       ~18 mm
+  - Neck thread:   18-415 (1 start, 1.59 mm pitch) — verify with calipers
 """
 
 import cadquery as cq
@@ -32,345 +45,350 @@ from cq_server.ui import ui, show_object
 # PARAMETRIC DIMENSIONS (all in mm)
 # =============================================================================
 
-# --- Bottle Specifications (standard 5ml essential oil bottles) ---
-# TODO: Verify actual bottle dimensions with physical samples
-BOTTLE_BODY_DIAMETER = 22.0     # mm - main bottle body diameter
-BOTTLE_HEIGHT = 55.0            # mm - total height including cap
-BOTTLE_NECK_DIAMETER = 18.0     # mm - neck outer diameter
-BOTTLE_CAP_THREAD = "18-400"    # standard thread size (to be confirmed)
+# --- Tolerances ---
+TOL = 0.3                  # print tolerance per side
+WALL = 2.5                 # general wall thickness
 
-# --- Carousel Layout ---
-BOTTLE_COUNT = 5                # number of bottle positions
-CAROUSEL_ARRANGEMENT = "semicircle"  # semicircle or linear arrangement
-BOTTLE_WELL_SPACING = 35.0      # mm - center-to-center distance between wells
+# --- Bottle specs (standard 5 ml essential oil) ---
+# TODO: Measure actual bottles with calipers and update
+BOTTLE_BODY_DIA = 22.0     # body outer diameter
+BOTTLE_HEIGHT = 55.0       # total height including cap
+BOTTLE_NECK_OD = 18.0      # neck outer diameter (thread crest)
+BOTTLE_NECK_ID = 15.0      # neck inner diameter (bore)
+BOTTLE_NECK_LENGTH = 10.0  # threaded portion of neck
 
-# --- Well Dimensions ---
-WELL_DIAMETER = BOTTLE_BODY_DIAMETER + 1.0  # mm - slight clearance for bottles
-WELL_DEPTH = BOTTLE_HEIGHT * 0.7             # mm - wells hold ~70% of bottle height
-WELL_WALL_THICKNESS = 2.5       # mm - wall thickness around each well
+# Thread profile — 18-415 (GPI/SPI finish)
+# "18" = 18 mm closure diameter, "415" = 4 turns, 15° bevel
+# TODO: Verify thread pitch with actual bottles
+THREAD_PITCH = 1.59        # mm per revolution (18-415 standard)
+THREAD_DEPTH = 0.8         # mm radial depth of thread
+THREAD_STARTS = 1          # single-start thread
 
-# --- Cap Interface ---
-# TODO: Determine if threaded or friction-fit works better
-CAP_INTERFACE_TYPE = "friction"  # "threaded" or "friction"
-CAP_COLLAR_HEIGHT = 8.0         # mm - height of cap interface collar
-CAP_COLLAR_INNER_DIA = BOTTLE_NECK_DIAMETER + 0.5  # mm - slight clearance
+# --- Carousel layout ---
+BOTTLE_COUNT = 5
+# Arc arrangement — bottles fan out in a 180° arc
+ARC_RADIUS = 40.0          # mm — center of plate to center of each receiver
+ARC_SPAN_DEG = 160.0       # degrees — total arc the 5 positions span
 
-# --- Dip Tube System ---
-DIP_TUBE_DIAMETER = 3.0         # mm - silicone tubing outer diameter
-DIP_TUBE_HOLE_DIAMETER = DIP_TUBE_DIAMETER + 0.3  # mm - clearance for tubing
-DIP_TUBE_LENGTH = BOTTLE_HEIGHT - 5.0  # mm - reaches near bottle bottom
+# --- Carousel plate ---
+PLATE_THICKNESS = 5.0      # mm — structural plate
+PLATE_MARGIN = 15.0        # mm — extra material beyond outermost receiver
 
-# --- Tube Routing ---
-ROUTING_CHANNEL_WIDTH = 5.0     # mm - width of tube routing channels
-ROUTING_CHANNEL_DEPTH = 3.0     # mm - depth of tube routing channels
-PUMP_SPACING = 40.0             # mm - spacing between peristaltic pumps below
-PUMP_Y_OFFSET = 50.0            # mm - distance from carousel center to pump row
+# --- Threaded receiver (hangs below plate) ---
+RECEIVER_OD = BOTTLE_NECK_OD + 2 * WALL  # outer diameter of printed socket
+RECEIVER_THREAD_ID = BOTTLE_NECK_OD + 2 * TOL  # internal thread major dia
+RECEIVER_LENGTH = BOTTLE_NECK_LENGTH + 3.0  # mm — enough thread engagement + clearance
+RECEIVER_CHAMFER = 1.0     # lead-in chamfer so the bottle starts easily
 
-# --- Structural Design ---
-BASE_THICKNESS = 4.0            # mm - thickness of carousel base plate
-WALL_HEIGHT = WELL_DEPTH + BASE_THICKNESS  # mm - total height of well walls
-LABEL_WINDOW_HEIGHT = 25.0      # mm - height of cutaway for label visibility
-LABEL_WINDOW_WIDTH = 15.0       # mm - width of cutaway for label visibility
+# --- Tube stub (pokes up through plate) ---
+TUBE_OD = 3.0              # silicone tubing outer diameter
+TUBE_ID = 1.5              # silicone tubing inner diameter
+TUBE_STUB_OD = TUBE_OD + 1.0  # printed stub outer diameter (press-fit)
+TUBE_BORE = TUBE_ID + 0.2  # bore through stub and plate for oil flow
+TUBE_STUB_HEIGHT = 6.0     # mm above plate surface — barb for silicone tube
 
-# --- Assembly Integration ---
-MOUNTING_HOLE_DIAMETER = 3.2    # mm - M3 mounting holes
-MOUNTING_HOLE_COUNT = 4         # number of mounting holes
-MOUNTING_HOLE_CIRCLE_RADIUS = 60.0  # mm - radius of mounting hole pattern
+# --- Tube routing (top surface of plate) ---
+ROUTE_CHANNEL_WIDTH = TUBE_OD + 1.5   # channel wide enough for tube + clearance
+ROUTE_CHANNEL_DEPTH = 2.5             # mm — recessed into plate top
+ROUTE_EXIT_Y = -(ARC_RADIUS + PLATE_MARGIN + 5.0)  # where tubes exit toward pumps
 
-# --- Visual and Ergonomic ---
-FILLET_RADIUS = 2.0             # mm - radius for smooth edges
-CHAMFER_SIZE = 1.0              # mm - chamfer size for easy handling
+# --- Mounting ---
+MOUNT_HOLE_DIA = 3.2       # M3 clearance
+MOUNT_HOLE_COUNT = 4
+MOUNT_HOLE_RADIUS = ARC_RADIUS + PLATE_MARGIN - 5.0  # near plate edge
+
+# --- Cosmetic ---
+FILLET_R = 1.5
 
 
-def calculate_well_positions():
-    """Calculate the XY positions for each bottle well based on arrangement."""
+# =============================================================================
+# GEOMETRY HELPERS
+# =============================================================================
+
+def receiver_positions():
+    """Return list of (x, y, angle_deg) for each bottle receiver."""
     positions = []
-
-    if CAROUSEL_ARRANGEMENT == "semicircle":
-        # Arrange wells in a semicircle
-        well_radius = (BOTTLE_COUNT - 1) * BOTTLE_WELL_SPACING / (2 * math.pi) * 2
-        start_angle = -math.pi / 2  # Start at bottom of semicircle
-        end_angle = math.pi / 2     # End at top of semicircle
-        angle_step = (end_angle - start_angle) / (BOTTLE_COUNT - 1)
-
-        for i in range(BOTTLE_COUNT):
-            angle = start_angle + i * angle_step
-            x = well_radius * math.cos(angle)
-            y = well_radius * math.sin(angle)
-            positions.append((x, y))
-    else:
-        # Linear arrangement
-        start_x = -(BOTTLE_COUNT - 1) * BOTTLE_WELL_SPACING / 2
-        for i in range(BOTTLE_COUNT):
-            x = start_x + i * BOTTLE_WELL_SPACING
-            positions.append((x, 0))
-
+    start = -ARC_SPAN_DEG / 2
+    step = ARC_SPAN_DEG / (BOTTLE_COUNT - 1)
+    for i in range(BOTTLE_COUNT):
+        angle_deg = start + i * step
+        angle_rad = math.radians(angle_deg)
+        x = ARC_RADIUS * math.sin(angle_rad)   # sin so arc opens toward +Y
+        y = ARC_RADIUS * math.cos(angle_rad)
+        positions.append((x, y, angle_deg))
     return positions
 
 
-def create_bottle_well(position_x, position_y, well_index):
-    """Create a single bottle well with cap interface and dip tube hole."""
-    # Main cylindrical well
-    well = (cq.Workplane("XY", origin=(position_x, position_y, 0))
-            .circle(WELL_DIAMETER / 2)
-            .extrude(WELL_DEPTH))
+# =============================================================================
+# COMPONENT BUILDERS
+# =============================================================================
 
-    # Create bottle cavity (hollow out the well)
-    bottle_cavity = (cq.Workplane("XY", origin=(position_x, position_y, BASE_THICKNESS))
-                     .circle((WELL_DIAMETER - 2 * WELL_WALL_THICKNESS) / 2)
-                     .extrude(WELL_DEPTH - BASE_THICKNESS))
+def create_plate():
+    """Structural carousel plate — a rounded rectangle or circle that spans
+    all receiver positions with margin."""
+    # Use a circle large enough to contain all receivers
+    plate_radius = ARC_RADIUS + RECEIVER_OD / 2 + PLATE_MARGIN
 
-    well = well.cut(bottle_cavity)
+    plate = (cq.Workplane("XY")
+             .circle(plate_radius)
+             .extrude(PLATE_THICKNESS))
 
-    # Add cap interface collar at the top
-    if CAP_INTERFACE_TYPE == "friction":
-        cap_collar = (cq.Workplane("XY", origin=(position_x, position_y, WELL_DEPTH))
-                      .circle(CAP_COLLAR_INNER_DIA / 2 + WELL_WALL_THICKNESS)
-                      .circle(CAP_COLLAR_INNER_DIA / 2)
-                      .extrude(CAP_COLLAR_HEIGHT))
-        well = well.union(cap_collar)
-
-    # TODO: Implement threaded interface if needed
-    # elif CAP_INTERFACE_TYPE == "threaded":
-    #     # Add threaded collar implementation
-    #     pass
-
-    # Dip tube pass-through hole (center of cap interface)
-    dip_tube_hole = (cq.Workplane("XY", origin=(position_x, position_y, 0))
-                     .circle(DIP_TUBE_HOLE_DIAMETER / 2)
-                     .extrude(WELL_DEPTH + CAP_COLLAR_HEIGHT + 2))
-
-    well = well.cut(dip_tube_hole)
-
-    # Label visibility window (cutaway in the side wall)
-    label_window = (cq.Workplane("YZ", origin=(position_x + WELL_DIAMETER / 2 - 1, position_y,
-                                              BASE_THICKNESS + LABEL_WINDOW_HEIGHT / 2))
-                    .rect(LABEL_WINDOW_WIDTH, LABEL_WINDOW_HEIGHT)
-                    .extrude(-WELL_WALL_THICKNESS - 1))
-
-    well = well.cut(label_window)
-
-    # Add identification number embossed on the well
-    # TODO: Add embossed numbers for well identification
-
-    return well
+    return plate
 
 
-def create_base_plate():
-    """Create the main base plate that connects all wells."""
-    well_positions = calculate_well_positions()
+def create_single_receiver(x, y):
+    """One threaded receiver socket, positioned at (x, y) hanging below the
+    plate (negative Z).  Includes the oil bore up through the plate and the
+    tube stub on top."""
 
-    # Calculate base plate dimensions to encompass all wells
-    if CAROUSEL_ARRANGEMENT == "semicircle":
-        # Semicircular base with some margin
-        max_radius = max(math.sqrt(x**2 + y**2) for x, y in well_positions)
-        base_radius = max_radius + WELL_DIAMETER / 2 + 10  # 10mm margin
+    # --- Receiver body (below plate) ---
+    # Solid cylinder hanging below Z=0
+    body = (cq.Workplane("XY", origin=(x, y, 0))
+            .circle(RECEIVER_OD / 2)
+            .extrude(-RECEIVER_LENGTH))
 
-        base_plate = (cq.Workplane("XY")
-                      .circle(base_radius)
-                      .extrude(BASE_THICKNESS))
-    else:
-        # Rectangular base for linear arrangement
-        max_x = max(x for x, y in well_positions) + WELL_DIAMETER / 2 + 10
-        min_x = min(x for x, y in well_positions) - WELL_DIAMETER / 2 - 10
-        base_width = max_x - min_x
-        base_length = WELL_DIAMETER + 20  # 20mm total margin
+    # Hollow out the thread bore
+    thread_bore = (cq.Workplane("XY", origin=(x, y, 0))
+                   .circle(RECEIVER_THREAD_ID / 2)
+                   .extrude(-RECEIVER_LENGTH - 1))  # through-cut
+    body = body.cut(thread_bore)
 
-        base_plate = (cq.Workplane("XY")
-                      .rect(base_width, base_length)
-                      .extrude(BASE_THICKNESS))
+    # Lead-in chamfer at the bottom (entry point for bottle)
+    try:
+        body = body.faces("<Z").chamfer(RECEIVER_CHAMFER)
+    except Exception:
+        pass
 
-    return base_plate
+    # --- Thread ridges (simplified helical bumps) ---
+    # True helical threads are hard to FDM-print at this scale.
+    # Instead we create concentric ring ridges at thread pitch intervals
+    # that a bottle neck can bite into. Works well enough for hand-tight
+    # screw-in; refine after test prints.
+    # TODO: Evaluate printed thread quality; consider switching to
+    #       bayonet-lock or friction-fit if threads don't resolve well.
+    thread_ridges = None
+    num_ridges = int(RECEIVER_LENGTH / THREAD_PITCH)
+    for r in range(num_ridges):
+        z_pos = -(r * THREAD_PITCH + THREAD_PITCH / 2)
+        ridge = (cq.Workplane("XY", origin=(x, y, z_pos))
+                 .circle(RECEIVER_THREAD_ID / 2 + THREAD_DEPTH)
+                 .circle(RECEIVER_THREAD_ID / 2)
+                 .extrude(THREAD_PITCH * 0.4))  # ridge is 40% of pitch
+        if thread_ridges is None:
+            thread_ridges = ridge
+        else:
+            thread_ridges = thread_ridges.union(ridge)
+
+    if thread_ridges is not None:
+        body = body.union(thread_ridges)
+
+    # --- Oil bore (through the plate) ---
+    bore = (cq.Workplane("XY", origin=(x, y, -1))
+            .circle(TUBE_BORE / 2)
+            .extrude(PLATE_THICKNESS + TUBE_STUB_HEIGHT + 2))
+    body = body.cut(bore)
+
+    # --- Tube stub (above plate, barb for silicone tube) ---
+    stub = (cq.Workplane("XY", origin=(x, y, PLATE_THICKNESS))
+            .circle(TUBE_STUB_OD / 2)
+            .extrude(TUBE_STUB_HEIGHT))
+
+    # Barb ring near top of stub for tube retention
+    barb = (cq.Workplane("XY", origin=(x, y, PLATE_THICKNESS + TUBE_STUB_HEIGHT * 0.65))
+            .circle(TUBE_STUB_OD / 2 + 0.4)
+            .circle(TUBE_STUB_OD / 2)
+            .extrude(1.0))
+    stub = stub.union(barb)
+
+    # Bore through the stub
+    stub_bore = (cq.Workplane("XY", origin=(x, y, PLATE_THICKNESS - 1))
+                 .circle(TUBE_BORE / 2)
+                 .extrude(TUBE_STUB_HEIGHT + 2))
+    stub = stub.cut(stub_bore)
+
+    body = body.union(stub)
+
+    return body
 
 
-def create_tube_routing_channels():
-    """Create channels for routing silicone tubes from wells to pumps."""
-    well_positions = calculate_well_positions()
+def create_all_receivers():
+    """Create all 5 threaded receivers and merge them."""
+    receivers = None
+    for x, y, _angle in receiver_positions():
+        r = create_single_receiver(x, y)
+        if receivers is None:
+            receivers = r
+        else:
+            receivers = receivers.union(r)
+    return receivers
+
+
+def create_routing_channels():
+    """Cut channels into the top surface of the plate to guide silicone
+    tubing from each tube stub toward the pump exit edge."""
     channels = None
 
-    for i, (well_x, well_y) in enumerate(well_positions):
-        # Calculate pump position for this well
-        pump_x = (i - (BOTTLE_COUNT - 1) / 2) * PUMP_SPACING
-        pump_y = -PUMP_Y_OFFSET  # Pumps are behind the carousel
+    positions = receiver_positions()
+    for i, (rx, ry, _angle) in enumerate(positions):
+        # Each channel runs from the tube stub position straight toward
+        # the exit edge (negative Y).  Simple straight slot for v1.
+        # TODO: Add gentle curves to avoid crossover for adjacent channels
+        exit_x = (i - (BOTTLE_COUNT - 1) / 2) * (ROUTE_CHANNEL_WIDTH + 3.0)
 
-        # Create simple rectangular channel from well to pump
-        # TODO: Optimize routing to avoid crossovers and add smooth curves
+        # Vertical slot from stub to exit — two-segment path:
+        #   stub (rx, ry) → bend point (exit_x, ry - 5) → exit (exit_x, exit_y)
 
-        # Calculate channel path (simple straight line for now)
-        channel_length = math.sqrt((pump_x - well_x)**2 + (pump_y - well_y)**2)
-        channel_angle = math.atan2(pump_y - well_y, pump_x - well_x)
+        # Segment 1: stub to bend
+        seg1_dx = exit_x - rx
+        seg1_dy = -5.0
+        seg1_len = math.sqrt(seg1_dx**2 + seg1_dy**2)
+        seg1_angle = math.degrees(math.atan2(seg1_dx, seg1_dy))
 
-        # Create rectangular channel
-        channel = (cq.Workplane("XY", origin=(well_x, well_y, 0))
-                   .rect(ROUTING_CHANNEL_WIDTH, channel_length)
-                   .rotate((0, 0, 0), (0, 0, 1), math.degrees(channel_angle))
-                   .translate((0, channel_length / 2, 0))
-                   .extrude(ROUTING_CHANNEL_DEPTH))
+        ch1 = (cq.Workplane("XY", origin=(rx, ry, PLATE_THICKNESS - ROUTE_CHANNEL_DEPTH))
+               .rect(ROUTE_CHANNEL_WIDTH, seg1_len + ROUTE_CHANNEL_WIDTH)
+               .extrude(ROUTE_CHANNEL_DEPTH + 0.1))  # slight overcut to ensure clean subtraction
+        ch1 = ch1.rotate((rx, ry, 0), (rx, ry, 1), -seg1_angle)
+
+        # Segment 2: bend to exit edge (straight down in -Y)
+        bend_y = ry - 5.0
+        seg2_len = abs(bend_y - ROUTE_EXIT_Y)
+
+        ch2 = (cq.Workplane("XY", origin=(exit_x, bend_y - seg2_len / 2,
+                                          PLATE_THICKNESS - ROUTE_CHANNEL_DEPTH))
+               .rect(ROUTE_CHANNEL_WIDTH, seg2_len)
+               .extrude(ROUTE_CHANNEL_DEPTH + 0.1))
+
+        seg = ch1.union(ch2)
 
         if channels is None:
-            channels = channel
+            channels = seg
         else:
-            channels = channels.union(channel)
+            channels = channels.union(seg)
 
     return channels
 
 
 def create_mounting_holes():
-    """Create mounting holes for attaching carousel to main enclosure."""
-    mounting_holes = None
-
-    for i in range(MOUNTING_HOLE_COUNT):
-        angle = i * 2 * math.pi / MOUNTING_HOLE_COUNT
-        hole_x = MOUNTING_HOLE_CIRCLE_RADIUS * math.cos(angle)
-        hole_y = MOUNTING_HOLE_CIRCLE_RADIUS * math.sin(angle)
-
-        hole = (cq.Workplane("XY", origin=(hole_x, hole_y, 0))
-                .circle(MOUNTING_HOLE_DIAMETER / 2)
-                .extrude(BASE_THICKNESS + 2))
-
-        if mounting_holes is None:
-            mounting_holes = hole
+    """M3 clearance holes near the plate perimeter."""
+    holes = None
+    for i in range(MOUNT_HOLE_COUNT):
+        angle = i * 2 * math.pi / MOUNT_HOLE_COUNT + math.pi / 4  # offset 45°
+        hx = MOUNT_HOLE_RADIUS * math.cos(angle)
+        hy = MOUNT_HOLE_RADIUS * math.sin(angle)
+        hole = (cq.Workplane("XY", origin=(hx, hy, -1))
+                .circle(MOUNT_HOLE_DIA / 2)
+                .extrude(PLATE_THICKNESS + 2))
+        if holes is None:
+            holes = hole
         else:
-            mounting_holes = mounting_holes.union(hole)
-
-    return mounting_holes
-
-
-def assemble_oil_carousel():
-    """Assemble the complete essential oil bottle carousel."""
-    # Create base components
-    base_plate = create_base_plate()
-    well_positions = calculate_well_positions()
-
-    # Add all bottle wells
-    complete_assembly = base_plate
-    for i, (x, y) in enumerate(well_positions):
-        well = create_bottle_well(x, y, i)
-        complete_assembly = complete_assembly.union(well)
-
-    # Add tube routing channels
-    routing_channels = create_tube_routing_channels()
-    if routing_channels:
-        complete_assembly = complete_assembly.cut(routing_channels)
-
-    # Add mounting holes
-    mounting_holes = create_mounting_holes()
-    if mounting_holes:
-        complete_assembly = complete_assembly.cut(mounting_holes)
-
-    # Apply finishing touches
-    try:
-        # Add fillets for smooth appearance
-        complete_assembly = complete_assembly.edges("|Z").fillet(FILLET_RADIUS * 0.5)
-        # Add chamfers to top edges for easy handling
-        complete_assembly = complete_assembly.faces(">Z").chamfer(CHAMFER_SIZE)
-    except:
-        # Skip filleting if geometry is too complex
-        pass
-
-    return complete_assembly
+            holes = holes.union(hole)
+    return holes
 
 
-def create_reference_bottle():
-    """Create a reference 5ml bottle for visualization."""
-    # Simple bottle shape for reference
-    bottle_body = (cq.Workplane("XY")
-                   .circle(BOTTLE_BODY_DIAMETER / 2)
-                   .extrude(BOTTLE_HEIGHT * 0.8))
+def create_reference_bottle(x, y):
+    """Ghost bottle hanging below a receiver for visualisation."""
+    # Bottle body (inverted — neck at top, base at bottom)
+    neck_h = BOTTLE_NECK_LENGTH
+    body_h = BOTTLE_HEIGHT - neck_h
 
-    bottle_neck = (cq.Workplane("XY", origin=(0, 0, BOTTLE_HEIGHT * 0.8))
-                   .circle(BOTTLE_NECK_DIAMETER / 2)
-                   .extrude(BOTTLE_HEIGHT * 0.2))
+    # Neck (threads into receiver, starts just below plate)
+    neck = (cq.Workplane("XY", origin=(x, y, -RECEIVER_LENGTH))
+            .circle(BOTTLE_NECK_OD / 2)
+            .extrude(-neck_h))
 
-    bottle = bottle_body.union(bottle_neck)
+    # Shoulder taper
+    shoulder = (cq.Workplane("XY", origin=(x, y, -RECEIVER_LENGTH - neck_h))
+                .circle(BOTTLE_NECK_OD / 2)
+                .workplane(offset=-3)
+                .circle(BOTTLE_BODY_DIA / 2)
+                .loft())
+
+    # Main body
+    body = (cq.Workplane("XY", origin=(x, y, -RECEIVER_LENGTH - neck_h - 3))
+            .circle(BOTTLE_BODY_DIA / 2)
+            .extrude(-(body_h - 3)))
+
+    bottle = neck.union(shoulder).union(body)
     return bottle
 
 
 # =============================================================================
-# GENERATE AND DISPLAY THE DESIGN
+# ASSEMBLY
 # =============================================================================
 
-# Generate the complete oil carousel design
+def assemble_oil_carousel():
+    """Full carousel: plate + receivers + routing channels + mounting holes."""
+    plate = create_plate()
+    receivers = create_all_receivers()
+
+    assembly = plate.union(receivers)
+
+    # Cut routing channels into top surface
+    channels = create_routing_channels()
+    if channels:
+        assembly = assembly.cut(channels)
+
+    # Cut mounting holes
+    holes = create_mounting_holes()
+    if holes:
+        assembly = assembly.cut(holes)
+
+    # Cosmetic fillets
+    try:
+        assembly = assembly.faces(">Z").edges().fillet(FILLET_R)
+    except Exception:
+        pass
+
+    return assembly
+
+
+# =============================================================================
+# RENDER
+# =============================================================================
+
 oil_carousel = assemble_oil_carousel()
 show_object(oil_carousel, name="oil_carousel_complete")
 
-# Show reference bottle in first well position for scale
-well_positions = calculate_well_positions()
-if well_positions:
-    reference_bottle = create_reference_bottle()
-    reference_bottle = reference_bottle.translate((well_positions[0][0],
-                                                  well_positions[0][1],
-                                                  BASE_THICKNESS))
-    show_object(reference_bottle, name="reference_bottle",
-               options={"alpha": 0.6, "color": "amber"})
+# Show ghost bottles in all positions for scale
+positions = receiver_positions()
+for i, (x, y, _a) in enumerate(positions):
+    bottle = create_reference_bottle(x, y)
+    show_object(bottle, name=f"bottle_{i+1}",
+               options={"alpha": 0.45, "color": "darkorange"})
 
-# Show individual components for reference
-show_object(create_base_plate().translate((100, 0, 0)), name="base_plate",
-           options={"alpha": 0.7, "color": "lightblue"})
+# Exploded single receiver for detail review
+single_receiver = create_single_receiver(0, 0)
+show_object(single_receiver.translate((120, 0, 0)), name="single_receiver_detail",
+           options={"alpha": 0.8, "color": "lightgreen"})
 
-if well_positions:
-    show_object(create_bottle_well(0, 0, 0).translate((150, 0, 0)),
-               name="single_well", options={"alpha": 0.7, "color": "lightgreen"})
+# Plate only (for print orientation reference)
+show_object(create_plate().translate((-120, 0, 0)), name="plate_only",
+           options={"alpha": 0.5, "color": "lightblue"})
 
-# Create design specifications reference
-specifications_text = f"""Essential Oil Carousel Specifications:
-
-BOTTLE WELLS:
-- Count: {BOTTLE_COUNT} bottles
-- Arrangement: {CAROUSEL_ARRANGEMENT}
-- Well diameter: {WELL_DIAMETER:.1f}mm
-- Well depth: {WELL_DEPTH:.1f}mm
-- Wall thickness: {WELL_WALL_THICKNESS:.1f}mm
-
-BOTTLE COMPATIBILITY:
-- Body diameter: {BOTTLE_BODY_DIAMETER:.1f}mm
-- Height: {BOTTLE_HEIGHT:.1f}mm
-- Cap interface: {CAP_INTERFACE_TYPE}
-- Thread type: {BOTTLE_CAP_THREAD}
-
-DIP TUBE SYSTEM:
-- Tube diameter: {DIP_TUBE_DIAMETER:.1f}mm
-- Hole clearance: {DIP_TUBE_HOLE_DIAMETER:.1f}mm
-- Tube length: {DIP_TUBE_LENGTH:.1f}mm
-
-FEATURES:
-✓ Label visibility windows
-✓ Quick-swap bottle design
-✓ Integrated tube routing
-✓ Mounting holes for assembly
-✓ Smooth filleted edges
-✓ Anti-drip design
-
-TODO ITEMS:
-- Measure actual bottle thread specifications
-- Test friction-fit vs threaded cap interface
-- Optimize tube routing to avoid crossovers
-- Add embossed well numbers/labels
-- Validate pump spacing alignment
-- Test print tolerances and fit
-- Consider anti-rotation features
-- Add cable management clips
-"""
-
-# Create reference plate for specifications
-reference_plate = (cq.Workplane("XY", origin=(0, -150, 0))
-                   .box(120, 80, 3))
-
-show_object(reference_plate, name="design_specifications",
-           options={"alpha": 0.3, "color": "gray"})
-
-print("Essential Oil Bottle Carousel design generated successfully!")
-print(f"Configuration:")
-print(f"  - {BOTTLE_COUNT} bottle wells in {CAROUSEL_ARRANGEMENT} arrangement")
-print(f"  - Well spacing: {BOTTLE_WELL_SPACING:.1f}mm center-to-center")
-print(f"  - Compatible with standard 5ml bottles ({BOTTLE_BODY_DIAMETER:.1f}mm dia)")
-print(f"  - {CAP_INTERFACE_TYPE.title()} cap interface with {DIP_TUBE_DIAMETER:.1f}mm dip tubes")
-print(f"  - Label windows: {LABEL_WINDOW_WIDTH:.1f} x {LABEL_WINDOW_HEIGHT:.1f}mm")
-print(f"  - Base thickness: {BASE_THICKNESS:.1f}mm with {MOUNTING_HOLE_COUNT} mounting holes")
-print("Key features:")
-print("  ✓ Quick-swap bottle replacement")
-print("  ✓ Integrated dip tube pass-throughs")
-print("  ✓ Tube routing channels to pumps")
-print("  ✓ Label visibility windows")
-print("  ✓ Secure cap interface system")
-print("  ✓ Easy integration with main enclosure")
+# Print summary
+print("=" * 60)
+print("Essential Oil Bottle Carousel v1 — INVERTED DESIGN")
+print("=" * 60)
+print(f"  Bottles: {BOTTLE_COUNT} × standard 5 ml")
+print(f"  Arrangement: {ARC_SPAN_DEG:.0f}° arc, R={ARC_RADIUS:.0f} mm")
+print(f"  Plate diameter: ~{2 * (ARC_RADIUS + RECEIVER_OD/2 + PLATE_MARGIN):.0f} mm")
+print(f"  Plate thickness: {PLATE_THICKNESS:.1f} mm")
+print(f"  Receiver OD: {RECEIVER_OD:.1f} mm, length: {RECEIVER_LENGTH:.1f} mm")
+print(f"  Thread: {BOTTLE_NECK_OD:.0f}-415, pitch {THREAD_PITCH:.2f} mm, "
+      f"depth {THREAD_DEPTH:.1f} mm")
+print(f"  Tube stub: {TUBE_STUB_OD:.1f} mm OD, {TUBE_STUB_HEIGHT:.0f} mm tall, "
+      f"bore {TUBE_BORE:.1f} mm")
+print(f"  Routing channels: {ROUTE_CHANNEL_WIDTH:.1f} × {ROUTE_CHANNEL_DEPTH:.1f} mm")
+print()
+print("User workflow:")
+print("  1. Remove bottle cap")
+print("  2. Screw bottle neck up into receiver")
+print("  3. Oil gravity-feeds through bore → tube stub → silicone tube → pump")
+print("  4. To swap: unscrew, replace, done")
+print()
+print("TODO:")
+print("  - Measure actual bottle threads with calipers")
+print("  - Test-print a single receiver for thread engagement")
+print("  - Evaluate bayonet-lock if FDM threads are too coarse")
+print("  - Add drip-catch lip around each receiver bore")
+print("  - Add position numbers (1-5) embossed on plate edge")
