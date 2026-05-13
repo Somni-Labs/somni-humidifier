@@ -501,16 +501,16 @@ positions = receiver_positions()
 for i, (x, y, _a) in enumerate(positions):
     bottle = create_reference_bottle(x, y)
     show_object(bottle, name=f"bottle_{i+1}",
-               options={"alpha": 0.45, "color": (1.0, 0.55, 0.0)})
+               options={"color": (1.0, 0.55, 0.0, 0.45)})
 
 # Exploded single receiver for detail review
 single_receiver = create_single_receiver(0, 0)
 show_object(single_receiver.translate((120, 0, 0)), name="single_receiver_detail",
-           options={"alpha": 0.8, "color": (0.56, 0.93, 0.56)})
+           options={"color": (0.56, 0.93, 0.56, 0.8)})
 
 # Plate only (for print orientation reference)
 show_object(create_plate().translate((-120, 0, 0)), name="plate_only",
-           options={"alpha": 0.5, "color": (0.68, 0.85, 0.90)})
+           options={"color": (0.68, 0.85, 0.90, 0.5)})
 
 # Print summary
 print("=" * 60)

@@ -12,6 +12,7 @@ Features:
 """
 
 import cadquery as cq
+import math
 from cq_server.ui import ui, show_object
 
 # === PARAMETERS ===
@@ -117,8 +118,9 @@ chamber_body = chamber_body.cut(water_inlet_hole)
 
 for i in range(OIL_INLET_COUNT):
     angle = (i * 360 / OIL_INLET_COUNT)
-    x = OIL_INLET_RADIUS * cq.Vector(1, 0, 0).rotated((0, 0, angle)).x
-    y = OIL_INLET_RADIUS * cq.Vector(1, 0, 0).rotated((0, 0, angle)).y
+    angle_rad = math.radians(angle)
+    x = OIL_INLET_RADIUS * math.cos(angle_rad)
+    y = OIL_INLET_RADIUS * math.sin(angle_rad)
 
     oil_inlet_pos = (x, y, OIL_INLET_HEIGHT)
     oil_inlet_hole = (
@@ -213,24 +215,20 @@ chamber_body = chamber_body.cut(drain_hole.translate(drain_position))
 # === FINAL ASSEMBLY ===
 
 # Add fillet to base edge for better bed adhesion and aesthetics
-chamber_body = (
-    chamber_body
-    .edges("|Z")
-    .filter(lambda e: e.Center().z < 1)  # Bottom edges only
-    .fillet(1.5)
-)
+try:
+    chamber_body = chamber_body.edges("<Z").fillet(1.5)
+except Exception:
+    pass
 
 # Add small chamfer to top nozzle edge
-chamber_body = (
-    chamber_body
-    .edges("|Z")
-    .filter(lambda e: e.Center().z > CHAMBER_HEIGHT + 5)  # Top edges only
-    .chamfer(0.5)
-)
+try:
+    chamber_body = chamber_body.edges(">Z").chamfer(0.5)
+except Exception:
+    pass
 
 # === DISPLAY ===
 
-show_object(chamber_body, name="mixing_chamber", options={"color": "lightblue", "alpha": 0.8})
+show_object(chamber_body, name="mixing_chamber", options={"color": (0.68, 0.85, 0.90, 0.8)})
 
 # === REFERENCE OBJECTS FOR VISUALIZATION ===
 
@@ -242,7 +240,7 @@ water_level = (
     .extrude(1)
 )
 
-show_object(water_level, name="water_level_reference", options={"color": "blue", "alpha": 0.3})
+show_object(water_level, name="water_level_reference", options={"color": (0.0, 0.0, 1.0, 0.3)})
 
 # Show piezo disk position
 piezo_disk = (
@@ -251,7 +249,7 @@ piezo_disk = (
     .extrude(3)  # Typical piezo thickness
 )
 
-show_object(piezo_disk, name="piezo_disk_reference", options={"color": "gold", "alpha": 0.7})
+show_object(piezo_disk, name="piezo_disk_reference", options={"color": (1.0, 0.84, 0.0, 0.7)})
 
 # === DESIGN NOTES ===
 """
