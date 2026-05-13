@@ -1,0 +1,10 @@
+# CAD Design Dependencies for Smart Humidifier Project
+cadquery-ocp>=7.7.0
+cq-server>=0.1.0
+
+# Alternative lighter CAD libraries if the above don't work:
+# opencascade-python
+# FreeCAD
+
+# Testing dependencies
+pytest>=7.0.0
