@@ -175,24 +175,27 @@ chamber_body = chamber_body.union(baffle)
 
 nozzle_start_height = CHIMNEY_START_HEIGHT + CHIMNEY_HEIGHT
 
-nozzle = (
+# Outer shell — tapered cylinder (loft between two circles)
+nozzle_outer = (
     cq.Workplane("XY")
     .workplane(offset=nozzle_start_height)
-    # Outer shell with gentle taper
     .circle(NOZZLE_OUTER_DIAMETER / 2)
     .workplane(offset=NOZZLE_HEIGHT)
     .circle(NOZZLE_OUTER_DIAMETER / 2 - 1)
     .loft()
-    # Hollow out with slight inward taper for aesthetics
-    .faces(">Z")
-    .workplane()
-    .circle(NOZZLE_INNER_DIAMETER / 2)
-    .workplane(offset=-NOZZLE_HEIGHT)
-    .circle(CHIMNEY_INNER_DIAMETER / 2)
-    .loft(combine=False)
-    .cutThruAll()
 )
 
+# Inner bore — tapered hollow core, built separately then subtracted
+nozzle_bore = (
+    cq.Workplane("XY")
+    .workplane(offset=nozzle_start_height - 0.5)
+    .circle(CHIMNEY_INNER_DIAMETER / 2)
+    .workplane(offset=NOZZLE_HEIGHT + 1)
+    .circle(NOZZLE_INNER_DIAMETER / 2)
+    .loft()
+)
+
+nozzle = nozzle_outer.cut(nozzle_bore)
 chamber_body = chamber_body.union(nozzle)
 
 # === DRAIN PORT ===
