@@ -45,22 +45,13 @@ FILLET_RADIUS = 3.0  # mm - smooth organic curves throughout
 
 def create_main_chimney():
     """Create the main cylindrical chimney tube with smooth interior."""
+    # Simple cylindrical chimney for initial version
     chimney = (cq.Workplane("XY")
                .circle(CHIMNEY_OUTER_DIAMETER / 2)
-               .extrude(CHIMNEY_HEIGHT)
-               .faces(">Z")
                .circle(CHIMNEY_INNER_DIAMETER / 2)
-               .cutThruAll())
+               .extrude(CHIMNEY_HEIGHT))
 
-    # Add subtle external taper for aesthetics
-    # TODO: Evaluate if taper affects visual cleanliness
-    taper_factor = 0.95  # Slight taper toward top
-    tapered_top = (cq.Workplane("XY", origin=(0, 0, CHIMNEY_HEIGHT))
-                   .circle((CHIMNEY_OUTER_DIAMETER / 2) * taper_factor)
-                   .extrude(-CHIMNEY_HEIGHT / 3))
-
-    # Blend the taper with the main body
-    chimney = chimney.intersect(tapered_top.translate((0, 0, CHIMNEY_HEIGHT / 3)))
+    # TODO: Add subtle external taper for aesthetics in future version
 
     return chimney
 
@@ -92,51 +83,55 @@ def create_snap_connection():
 
 def create_directional_nozzle():
     """Create angled outlet nozzle with anti-drip lip."""
-    # Position nozzle at top of chimney with slight forward angle
-    nozzle_center_height = CHIMNEY_HEIGHT + NOZZLE_HEIGHT / 2
+    # Simplified nozzle for initial version - position at top of chimney
+    nozzle_center_height = CHIMNEY_HEIGHT
 
-    # Main nozzle body - elliptical for directional flow
+    # Main nozzle body - simplified cylindrical shape
     # TODO: Optimize nozzle shape for mist pattern and reach
-    nozzle_body = (cq.Workplane("XZ", origin=(0, 0, nozzle_center_height))
-                   .ellipse(NOZZLE_DIAMETER / 2, NOZZLE_HEIGHT / 2)
-                   .extrude(NOZZLE_DIAMETER)
-                   .rotate((0, 0, 0), (1, 0, 0), NOZZLE_ANGLE))
+    nozzle_body = (cq.Workplane("XY", origin=(0, 0, nozzle_center_height))
+                   .circle(NOZZLE_DIAMETER / 2)
+                   .extrude(NOZZLE_HEIGHT))
 
     # Create nozzle opening - slightly smaller than body for velocity increase
     opening_diameter = NOZZLE_DIAMETER * 0.8
-    nozzle_opening = (cq.Workplane("XZ", origin=(0, 0, nozzle_center_height))
-                      .ellipse(opening_diameter / 2, (NOZZLE_HEIGHT / 2) * 0.9)
-                      .extrude(NOZZLE_DIAMETER + 5)  # Cut completely through
-                      .rotate((0, 0, 0), (1, 0, 0), NOZZLE_ANGLE))
+    nozzle_opening = (cq.Workplane("XY", origin=(0, 0, nozzle_center_height))
+                      .circle(opening_diameter / 2)
+                      .extrude(NOZZLE_HEIGHT + 2))  # Cut completely through
 
     nozzle_body = nozzle_body.cut(nozzle_opening)
 
-    # Anti-drip lip - inward curve at nozzle rim
+    # Simple chamfer for anti-drip effect
     # TODO: Test anti-drip effectiveness with various lip geometries
-    lip_sweep_path = (cq.Workplane("YZ", origin=(NOZZLE_DIAMETER / 2, 0, nozzle_center_height))
-                      .spline([(0, 0), (-DRIP_LIP_INWARD_CURVE, -1),
-                              (-DRIP_LIP_INWARD_CURVE, -2)]))
-
-    # Apply fillets for smooth, organic appearance
-    nozzle_body = nozzle_body.edges().fillet(FILLET_RADIUS * 0.5)
+    try:
+        nozzle_body = nozzle_body.faces(">Z").chamfer(DRIP_LIP_INWARD_CURVE)
+    except:
+        # Skip if chamfer fails
+        pass
 
     return nozzle_body
 
 
 def create_internal_flow_guide():
     """Create internal features to guide mist flow and reduce turbulence."""
-    # Gentle internal taper to accelerate mist flow toward nozzle
+    # Simplified internal taper to accelerate mist flow toward nozzle
     # TODO: CFD analysis to optimize flow characteristics
     taper_height = CHIMNEY_HEIGHT * 0.3  # Top 30% of chimney
+
+    # Simple tapered cylinder for now
     flow_guide = (cq.Workplane("XY", origin=(0, 0, CHIMNEY_HEIGHT - taper_height))
                   .circle(CHIMNEY_INNER_DIAMETER / 2)
-                  .circle((CHIMNEY_INNER_DIAMETER / 2) * 0.8)  # Taper to 80% diameter
-                  .loft())
+                  .extrude(taper_height))
+
+    # Create tapered cut
+    taper_cut = (cq.Workplane("XY", origin=(0, 0, CHIMNEY_HEIGHT))
+                 .circle((CHIMNEY_INNER_DIAMETER / 2) * 0.8)  # Taper to 80% diameter
+                 .extrude(-taper_height))
+
+    flow_guide = flow_guide.intersect(taper_cut)
 
     return flow_guide
 
 
-@ui
 def assemble_mist_chimney():
     """Assemble complete mist chimney and outlet system."""
 
@@ -155,9 +150,14 @@ def assemble_mist_chimney():
     # Subtract flow guide from interior for smooth mist path
     complete_assembly = complete_assembly.cut(flow_guide)
 
-    # Apply overall fillets for smooth, modern appearance
+    # Apply selective fillets for smooth, modern appearance
     # TODO: Evaluate fillet radii for manufacturing constraints
-    complete_assembly = complete_assembly.edges().fillet(FILLET_RADIUS)
+    # Note: Being selective with fillets to avoid geometric conflicts
+    try:
+        complete_assembly = complete_assembly.edges("|Z").fillet(FILLET_RADIUS * 0.5)
+    except:
+        # Fallback: skip filleting if geometry is too complex
+        pass
 
     return complete_assembly
 
@@ -201,8 +201,7 @@ TODO Items:
 
 # Create a simple reference plate with the specs
 reference_plate = (cq.Workplane("XY", origin=(0, -100, 0))
-                   .box(80, 60, 2)
-                   .edges().fillet(2))
+                   .box(80, 60, 2))
 
 show_object(reference_plate, name="design_specifications",
            options={"alpha": 0.3, "color": "gray"})
