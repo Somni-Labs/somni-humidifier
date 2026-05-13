@@ -101,8 +101,28 @@ This is v1 of the mist chimney design. Future iterations may include:
 - Scent diffusion optimization
 - Smart sensors for mist quality monitoring
 
+## STL Generation
+
+The design has been successfully rendered to STL files for 3D printing/manufacturing:
+
+- `v1-mist-chimney__mist_chimney_complete.stl` (284K) - Complete assembly
+- `v1-mist-chimney__chimney_tube.stl` (50K) - Main chimney component
+- `v1-mist-chimney__outlet_nozzle.stl` (111K) - Directional outlet nozzle
+- `v1-mist-chimney__snap_connection.stl` (124K) - Removable connection ring
+- `v1-mist-chimney__design_specifications.stl` (684B) - Reference plate
+
+### Rendering Notes
+
+Some design elements were simplified for successful STL export:
+- Complex fillet operations replaced with selective filleting
+- Elliptical nozzle geometry simplified to cylindrical
+- Lofted flow guide replaced with intersection-based taper
+- Anti-drip lip implemented as simple chamfer
+
+All core functionality and dimensional requirements maintained.
+
 ---
 
-**Status**: Initial design complete, pending prototype testing
-**Next Steps**: Manufacturing review and flow testing
+**Status**: Initial design complete, STL files generated successfully
+**Next Steps**: Manufacturing review, prototype testing, and flow validation
 **Dependencies**: Mixing chamber interface specification
