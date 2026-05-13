@@ -1,0 +1,573 @@
+esphome:
+  name: smart-humidifier
+  friendly_name: "Somni Smart Humidifier"
+  comment: "ESP32-powered smart humidifier with essential oil blending and closed-loop humidity control"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Smart-Humidifier-Fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+# Web server for debugging
+web_server:
+  port: 80
+
+# I2C for BME280 sensor
+i2c:
+  sda: 22
+  scl: 23
+  scan: true
+  id: bus_a
+
+# Global variables for blend presets and state management
+globals:
+  - id: current_blend_preset
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: auto_humidity_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: target_humidity_value
+    type: float
+    restore_value: yes
+    initial_value: '50.0'
+  - id: last_dose_time
+    type: unsigned long
+    initial_value: '0'
+  - id: dose_interval_ms
+    type: unsigned long
+    initial_value: '300000'  # 5 minutes default
+  - id: water_level_low_flag
+    type: bool
+    initial_value: 'false'
+
+# BME280 sensor for humidity and temperature
+sensor:
+  - platform: bme280_i2c
+    i2c_id: bus_a
+    address: 0x76
+    temperature:
+      name: "Temperature"
+      id: temperature_sensor
+      accuracy_decimals: 1
+      filters:
+        - offset: 0.0  # Calibration offset if needed
+    humidity:
+      name: "Humidity"
+      id: humidity_sensor
+      accuracy_decimals: 1
+      on_value:
+        then:
+          - lambda: |-
+              // Auto humidity control logic
+              if (id(auto_humidity_enabled)) {
+                float current = x;
+                float target = id(target_humidity_value);
+                bool atomizer_on = id(atomizer_switch).state;
+
+                if (current < target - 2.0 && !atomizer_on && !id(water_level_low_flag)) {
+                  // Start atomizer if humidity too low
+                  id(atomizer_switch).turn_on();
+                  ESP_LOGI("humidity_control", "Starting atomizer: %.1f%% < %.1f%%", current, target);
+                } else if (current >= target + 1.0 && atomizer_on) {
+                  // Stop atomizer if humidity reached
+                  id(atomizer_switch).turn_off();
+                  ESP_LOGI("humidity_control", "Stopping atomizer: %.1f%% >= %.1f%%", current, target);
+                }
+              }
+    pressure:
+      name: "Pressure"
+      accuracy_decimals: 1
+
+  # Water level sensor (capacitive)
+  - platform: adc
+    pin: 34
+    name: "Water Level Raw"
+    id: water_level_raw
+    update_interval: 5s
+    accuracy_decimals: 3
+    attenuation: 11db
+    filters:
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 1
+    on_value:
+      then:
+        - lambda: |-
+            // Convert to percentage and update binary sensor
+            float percentage = (x / 3.3) * 100.0;  // Normalize to 0-100%
+            id(water_level_percentage).publish_state(percentage);
+
+            // Update low water flag
+            bool is_low = percentage < 20.0;  // Low threshold at 20%
+            if (is_low != id(water_level_low_flag)) {
+              id(water_level_low_flag) = is_low;
+              id(water_level_low_sensor).publish_state(is_low);
+
+              if (is_low) {
+                // Emergency stop atomizer if water low
+                if (id(atomizer_switch).state) {
+                  id(atomizer_switch).turn_off();
+                  ESP_LOGW("water_level", "Emergency stop: Water level low!");
+                }
+              }
+            }
+
+  - platform: template
+    name: "Water Level"
+    id: water_level_percentage
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    icon: "mdi:water-percent"
+
+  # Target humidity setting
+  - platform: template
+    name: "Target Humidity"
+    id: target_humidity_sensor
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    lambda: |-
+      return id(target_humidity_value);
+
+# Binary sensors
+binary_sensor:
+  - platform: template
+    name: "Water Level Low"
+    id: water_level_low_sensor
+    device_class: problem
+    icon: "mdi:water-alert"
+
+# Main controls
+switch:
+  # Master atomizer control
+  - platform: gpio
+    pin: 21
+    name: "Humidifier Power"
+    id: atomizer_switch
+    icon: "mdi:air-humidifier"
+    on_turn_on:
+      - lambda: |-
+          if (id(water_level_low_flag)) {
+            ESP_LOGW("atomizer", "Cannot start: Water level low");
+            id(atomizer_switch).turn_off();
+            return;
+          }
+          ESP_LOGI("atomizer", "Atomizer started");
+    on_turn_off:
+      - lambda: |-
+          ESP_LOGI("atomizer", "Atomizer stopped");
+
+  # Auto humidity mode toggle
+  - platform: template
+    name: "Auto Humidity"
+    id: auto_humidity_switch
+    icon: "mdi:auto-mode"
+    lambda: |-
+      return id(auto_humidity_enabled);
+    turn_on_action:
+      - lambda: |-
+          id(auto_humidity_enabled) = true;
+          ESP_LOGI("auto_mode", "Auto humidity enabled, target: %.1f%%", id(target_humidity_value));
+    turn_off_action:
+      - lambda: |-
+          id(auto_humidity_enabled) = false;
+          ESP_LOGI("auto_mode", "Auto humidity disabled");
+
+  # Essential oil pump switches
+  - platform: gpio
+    pin: 16
+    name: "Oil Pump 1"
+    id: oil_pump_1
+    icon: "mdi:spray"
+
+  - platform: gpio
+    pin: 17
+    name: "Oil Pump 2"
+    id: oil_pump_2
+    icon: "mdi:spray"
+
+  - platform: gpio
+    pin: 18
+    name: "Oil Pump 3"
+    id: oil_pump_3
+    icon: "mdi:spray"
+
+  - platform: gpio
+    pin: 19
+    name: "Oil Pump 4"
+    id: oil_pump_4
+    icon: "mdi:spray"
+
+  - platform: gpio
+    pin: 20
+    name: "Oil Pump 5"
+    id: oil_pump_5
+    icon: "mdi:spray"
+
+# PWM output for mist intensity control
+output:
+  - platform: ledc
+    pin: 21
+    id: atomizer_pwm
+    frequency: 1000Hz
+
+# Number inputs for controls
+number:
+  # Mist intensity control
+  - platform: template
+    name: "Mist Intensity"
+    id: mist_intensity
+    icon: "mdi:water-percent"
+    min_value: 0
+    max_value: 100
+    step: 5
+    initial_value: 50
+    unit_of_measurement: "%"
+    mode: slider
+    set_action:
+      - lambda: |-
+          float duty = x / 100.0;
+          if (id(atomizer_switch).state && !id(water_level_low_flag)) {
+            id(atomizer_pwm).set_level(duty);
+            ESP_LOGI("mist_intensity", "Set to %.0f%% (%.2f duty)", x, duty);
+          }
+
+  # Target humidity setting
+  - platform: template
+    name: "Target Humidity"
+    id: target_humidity_number
+    icon: "mdi:target"
+    min_value: 30
+    max_value: 80
+    step: 1
+    initial_value: 50
+    unit_of_measurement: "%"
+    mode: box
+    set_action:
+      - lambda: |-
+          id(target_humidity_value) = x;
+          id(target_humidity_sensor).publish_state(x);
+          ESP_LOGI("target_humidity", "Set to %.0f%%", x);
+
+  # Oil dose duration controls (in seconds)
+  - platform: template
+    name: "Oil Dose 1"
+    id: oil_dose_1
+    icon: "mdi:timer"
+    min_value: 0
+    max_value: 30
+    step: 1
+    initial_value: 3
+    unit_of_measurement: "s"
+    mode: box
+
+  - platform: template
+    name: "Oil Dose 2"
+    id: oil_dose_2
+    icon: "mdi:timer"
+    min_value: 0
+    max_value: 30
+    step: 1
+    initial_value: 0
+    unit_of_measurement: "s"
+    mode: box
+
+  - platform: template
+    name: "Oil Dose 3"
+    id: oil_dose_3
+    icon: "mdi:timer"
+    min_value: 0
+    max_value: 30
+    step: 1
+    initial_value: 0
+    unit_of_measurement: "s"
+    mode: box
+
+  - platform: template
+    name: "Oil Dose 4"
+    id: oil_dose_4
+    icon: "mdi:timer"
+    min_value: 0
+    max_value: 30
+    step: 1
+    initial_value: 0
+    unit_of_measurement: "s"
+    mode: box
+
+  - platform: template
+    name: "Oil Dose 5"
+    id: oil_dose_5
+    icon: "mdi:timer"
+    min_value: 0
+    max_value: 30
+    step: 1
+    initial_value: 0
+    unit_of_measurement: "s"
+    mode: box
+
+  # Dose interval setting
+  - platform: template
+    name: "Dose Interval"
+    id: dose_interval_number
+    icon: "mdi:clock-outline"
+    min_value: 1
+    max_value: 60
+    step: 1
+    initial_value: 5
+    unit_of_measurement: "min"
+    mode: box
+    set_action:
+      - lambda: |-
+          id(dose_interval_ms) = (unsigned long)(x * 60000);  // Convert to milliseconds
+          ESP_LOGI("dose_interval", "Set to %.0f minutes", x);
+
+# Blend preset selector
+select:
+  - platform: template
+    name: "Oil Blend Preset"
+    id: oil_blend_preset
+    icon: "mdi:palette"
+    options:
+      - "Off"
+      - "Lavender"
+      - "Eucalyptus"
+      - "Peppermint"
+      - "Relaxation"
+      - "Focus"
+      - "Sleep"
+      - "Custom Blend 1"
+      - "Custom Blend 2"
+      - "Custom Blend 3"
+    initial_option: "Off"
+    set_action:
+      - lambda: |-
+          std::string preset = x;
+          ESP_LOGI("blend_preset", "Selected: %s", preset.c_str());
+
+          // Reset all doses first
+          id(oil_dose_1).set_value(0);
+          id(oil_dose_2).set_value(0);
+          id(oil_dose_3).set_value(0);
+          id(oil_dose_4).set_value(0);
+          id(oil_dose_5).set_value(0);
+
+          // Set preset blend ratios
+          if (preset == "Lavender") {
+            id(current_blend_preset) = 1;
+            id(oil_dose_1).set_value(5);  // Pure lavender
+          } else if (preset == "Eucalyptus") {
+            id(current_blend_preset) = 2;
+            id(oil_dose_2).set_value(4);  // Pure eucalyptus
+          } else if (preset == "Peppermint") {
+            id(current_blend_preset) = 3;
+            id(oil_dose_3).set_value(3);  // Pure peppermint
+          } else if (preset == "Relaxation") {
+            id(current_blend_preset) = 4;
+            id(oil_dose_1).set_value(3);  // Lavender
+            id(oil_dose_4).set_value(1);  // Chamomile
+            id(oil_dose_2).set_value(1);  // Light eucalyptus
+          } else if (preset == "Focus") {
+            id(current_blend_preset) = 5;
+            id(oil_dose_3).set_value(2);  // Peppermint
+            id(oil_dose_2).set_value(2);  // Eucalyptus
+            id(oil_dose_5).set_value(1);  // Rosemary
+          } else if (preset == "Sleep") {
+            id(current_blend_preset) = 6;
+            id(oil_dose_1).set_value(4);  // Lavender
+            id(oil_dose_4).set_value(2);  // Chamomile
+          } else if (preset == "Custom Blend 1") {
+            id(current_blend_preset) = 7;
+            // User can set custom doses manually
+          } else if (preset == "Custom Blend 2") {
+            id(current_blend_preset) = 8;
+            // User can set custom doses manually
+          } else if (preset == "Custom Blend 3") {
+            id(current_blend_preset) = 9;
+            // User can set custom doses manually
+          } else {
+            id(current_blend_preset) = 0;  // Off
+          }
+
+# Status LED (optional WS2812B for mood lighting)
+light:
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2812
+    pin: 25
+    num_leds: 1
+    name: "Status LED"
+    id: status_led
+    icon: "mdi:led-strip"
+    effects:
+      - pulse:
+          name: "Breathing"
+          update_interval: 1s
+      - strobe:
+          name: "Warning"
+          colors:
+            - state: true
+              brightness: 100%
+              red: 100%
+              green: 0%
+              blue: 0%
+              duration: 500ms
+            - state: false
+              duration: 500ms
+
+# Interval component for scheduled oil dosing
+interval:
+  - interval: 5s
+    then:
+      - lambda: |-
+          // Scheduled oil dosing logic
+          if (id(atomizer_switch).state && !id(water_level_low_flag)) {
+            unsigned long now = millis();
+            if (now - id(last_dose_time) >= id(dose_interval_ms)) {
+              id(last_dose_time) = now;
+
+              // Execute oil doses based on current settings
+              float dose1 = id(oil_dose_1).state;
+              float dose2 = id(oil_dose_2).state;
+              float dose3 = id(oil_dose_3).state;
+              float dose4 = id(oil_dose_4).state;
+              float dose5 = id(oil_dose_5).state;
+
+              if (dose1 > 0 || dose2 > 0 || dose3 > 0 || dose4 > 0 || dose5 > 0) {
+                ESP_LOGI("oil_dosing", "Starting dose cycle: %.0fs, %.0fs, %.0fs, %.0fs, %.0fs",
+                         dose1, dose2, dose3, dose4, dose5);
+
+                // Create dose sequence
+                auto call = id(dose_sequence_script).execute();
+              }
+            }
+          }
+
+# Button for manual dose trigger and controls
+button:
+  - platform: template
+    name: "Manual Dose"
+    icon: "mdi:play"
+    on_press:
+      - script.execute: dose_sequence_script
+
+  - platform: template
+    name: "Stop All Pumps"
+    icon: "mdi:stop"
+    on_press:
+      - switch.turn_off: oil_pump_1
+      - switch.turn_off: oil_pump_2
+      - switch.turn_off: oil_pump_3
+      - switch.turn_off: oil_pump_4
+      - switch.turn_off: oil_pump_5
+
+  - platform: restart
+    name: "Restart Device"
+
+# Script for executing oil dose sequence
+script:
+  - id: dose_sequence_script
+    then:
+      # Execute oil doses sequentially
+      - lambda: |-
+          ESP_LOGI("dose_script", "Starting oil dose sequence");
+      - if:
+          condition:
+            lambda: 'return id(oil_dose_1).state > 0;'
+          then:
+            - switch.turn_on: oil_pump_1
+            - delay: !lambda 'return (int)(id(oil_dose_1).state * 1000);'
+            - switch.turn_off: oil_pump_1
+            - lambda: 'ESP_LOGI("dose_script", "Pump 1 dosed for %.0fs", id(oil_dose_1).state);'
+      - if:
+          condition:
+            lambda: 'return id(oil_dose_2).state > 0;'
+          then:
+            - switch.turn_on: oil_pump_2
+            - delay: !lambda 'return (int)(id(oil_dose_2).state * 1000);'
+            - switch.turn_off: oil_pump_2
+            - lambda: 'ESP_LOGI("dose_script", "Pump 2 dosed for %.0fs", id(oil_dose_2).state);'
+      - if:
+          condition:
+            lambda: 'return id(oil_dose_3).state > 0;'
+          then:
+            - switch.turn_on: oil_pump_3
+            - delay: !lambda 'return (int)(id(oil_dose_3).state * 1000);'
+            - switch.turn_off: oil_pump_3
+            - lambda: 'ESP_LOGI("dose_script", "Pump 3 dosed for %.0fs", id(oil_dose_3).state);'
+      - if:
+          condition:
+            lambda: 'return id(oil_dose_4).state > 0;'
+          then:
+            - switch.turn_on: oil_pump_4
+            - delay: !lambda 'return (int)(id(oil_dose_4).state * 1000);'
+            - switch.turn_off: oil_pump_4
+            - lambda: 'ESP_LOGI("dose_script", "Pump 4 dosed for %.0fs", id(oil_dose_4).state);'
+      - if:
+          condition:
+            lambda: 'return id(oil_dose_5).state > 0;'
+          then:
+            - switch.turn_on: oil_pump_5
+            - delay: !lambda 'return (int)(id(oil_dose_5).state * 1000);'
+            - switch.turn_off: oil_pump_5
+            - lambda: 'ESP_LOGI("dose_script", "Pump 5 dosed for %.0fs", id(oil_dose_5).state);'
+      - lambda: 'ESP_LOGI("dose_script", "Oil dose sequence completed");'
+
+# Deep sleep management (when humidifier is off)
+deep_sleep:
+  id: deep_sleep_control
+  sleep_duration: 60min
+  wakeup_pin: GPIO0  # Boot button for manual wake
+  wakeup_pin_mode: INVERT_WAKEUP
+
+# Text sensor for device status
+text_sensor:
+  - platform: template
+    name: "Device Status"
+    id: device_status
+    icon: "mdi:information"
+    lambda: |-
+      std::string status = "Ready";
+      if (id(water_level_low_flag)) {
+        status = "Water Low";
+      } else if (id(atomizer_switch).state) {
+        if (id(auto_humidity_enabled)) {
+          status = "Auto Mode";
+        } else {
+          status = "Manual Mode";
+        }
+      }
+      return status;
+    update_interval: 10s
+
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+    ssid:
+      name: "Connected SSID"
+
