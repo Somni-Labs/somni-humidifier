@@ -626,71 +626,120 @@ def build_base():
         base = base.union(pin)
 
     # --- SOMNI LABS branding (rear panel, +Y wall) ---
-    # Layout: [logo icon] SOMNI / LABS
-    # The logo icon is the simplified "eye" from the Somni Labs SVG:
-    # concentric ring + filled center dot, debossed into the rear panel.
-    # Text sits to the right of the icon.
-    brand_z = BASE_H * 0.30
-    # Logo icon — concentric circles (the "eye" mark)
-    logo_x = -18   # icon center, left of text
-    logo_r_outer = 6.0   # outer ring radius
-    logo_r_inner = 4.0   # inner ring radius (creates the ring)
-    logo_r_dot = 2.5     # filled center dot radius
+    # Full logo: S-curve wave icon (from somni-icon.svg) + wordmark.
+    # The SVG icon has 8 S-curve bezier paths flowing top-right to bottom-left,
+    # plus a center circle with a dot. We render 4 of the 8 curves (every other)
+    # as debossed spline grooves — FDM can't resolve all 8 at this scale.
+    # Each groove is 0.8mm wide (single nozzle width on a 0.4mm nozzle).
+    #
+    # Layout: [wave icon 25mm] [gap] [SOMNI / LABS text]
+    brand_z = BASE_H * 0.30    # vertical center of branding on rear wall
+    logo_cx = -22              # icon center X (left of text)
+    groove_w = 0.8             # groove width (printable at 0.4mm nozzle)
+    groove_d = BRAND_DEPTH     # groove depth
 
-    # Deboss the outer ring
-    ring_outer = (
+    # S-curve waypoints — sampled from SVG bezier paths, scaled to 25mm,
+    # centered at origin. 4 curves (outermost, then every other).
+    # Coordinates are (X_on_wall, Z_on_wall) relative to icon center.
+    s_curves = [
+        # Curve 0 (outermost)
+        [(7.0,10.0),(7.36,9.97),(8.23,9.74),(9.27,9.14),(10.14,7.95),
+         (10.5,6.0),(8.32,4.02),(3.11,2.61),(-3.11,1.39),(-8.32,-0.02),
+         (-10.5,-2.0),(-10.14,-4.47),(-9.27,-6.9),(-8.23,-8.98),
+         (-7.36,-10.45),(-7.0,-11.0)],
+        # Curve 2
+        [(5.5,8.0),(5.81,7.97),(6.56,7.78),(7.44,7.24),(8.19,6.21),
+         (8.5,4.5),(6.73,2.76),(2.52,1.53),(-2.52,0.47),(-6.73,-0.76),
+         (-8.5,-2.5),(-8.19,-4.52),(-7.44,-6.3),(-6.56,-7.72),
+         (-5.81,-8.66),(-5.5,-9.0)],
+        # Curve 4
+        [(4.0,6.0),(4.26,5.98),(4.88,5.81),(5.62,5.35),(6.24,4.46),
+         (6.5,3.0),(5.15,1.51),(1.92,0.46),(-1.92,-0.46),(-5.15,-1.51),
+         (-6.5,-3.0),(-6.24,-4.57),(-5.62,-5.7),(-4.88,-6.46),
+         (-4.26,-6.87),(-4.0,-7.0)],
+        # Curve 6 (innermost)
+        [(2.5,4.0),(2.71,3.98),(3.2,3.84),(3.8,3.46),(4.29,2.72),
+         (4.5,1.5),(3.56,0.26),(1.33,-0.62),(-1.33,-1.38),(-3.56,-2.26),
+         (-4.5,-3.5),(-4.29,-4.42),(-3.8,-4.89),(-3.2,-5.05),
+         (-2.71,-5.04),(-2.5,-5.0)],
+    ]
+
+    # Cut each S-curve as a debossed groove using spline + pipe/sweep
+    for curve_pts in s_curves:
+        # Offset points to logo position on the rear wall
+        abs_pts = [(logo_cx + x, brand_z + z) for x, z in curve_pts]
+
+        try:
+            # Build spline path on the XZ plane at the rear wall surface
+            path_wire = (
+                cq.Workplane("XZ")
+                .workplane(offset=BASE_D / 2 - groove_d + 0.1)
+                .spline(abs_pts)
+            )
+            # Sweep a small circle along the spline to create a groove solid
+            groove = (
+                cq.Workplane("XZ")
+                .workplane(offset=BASE_D / 2 - groove_d + 0.1)
+                .center(abs_pts[0][0], abs_pts[0][1])
+                .circle(groove_w / 2)
+                .sweep(path_wire)
+            )
+            base = base.cut(groove)
+        except Exception:
+            # Fallback: if spline sweep fails, cut individual small dots
+            # along the curve path as a stippled approximation
+            for px, pz in abs_pts[::3]:
+                stipple = (
+                    cq.Workplane("XZ")
+                    .workplane(offset=BASE_D / 2)
+                    .center(px, pz)
+                    .circle(groove_w)
+                    .extrude(-groove_d)
+                )
+                base = base.cut(stipple)
+
+    # Center circle (ring + filled dot)
+    center_ring_r = 1.5
+    center_dot_r = 0.625
+    ring = (
         cq.Workplane("XZ")
         .workplane(offset=BASE_D / 2)
-        .center(logo_x, brand_z)
-        .circle(logo_r_outer)
-        .circle(logo_r_inner)
-        .extrude(-BRAND_DEPTH)
+        .center(logo_cx, brand_z)
+        .circle(center_ring_r + groove_w / 2)
+        .circle(center_ring_r - groove_w / 2)
+        .extrude(-groove_d)
     )
-    base = base.cut(ring_outer)
-
-    # Deboss the center dot
+    base = base.cut(ring)
     dot = (
         cq.Workplane("XZ")
         .workplane(offset=BASE_D / 2)
-        .center(logo_x, brand_z)
-        .circle(logo_r_dot)
-        .extrude(-BRAND_DEPTH)
+        .center(logo_cx, brand_z)
+        .circle(center_dot_r)
+        .extrude(-groove_d)
     )
     base = base.cut(dot)
 
-    # Second concentric ring (slightly larger, thinner — the outer "wave" hint)
-    ring_outer2 = (
-        cq.Workplane("XZ")
-        .workplane(offset=BASE_D / 2)
-        .center(logo_x, brand_z)
-        .circle(logo_r_outer + 2.5)
-        .circle(logo_r_outer + 1.5)
-        .extrude(-BRAND_DEPTH * 0.7)
-    )
-    base = base.cut(ring_outer2)
-
-    # Text: "SOMNI" and "LABS" to the right of the icon
+    # Wordmark: "SOMNI" + "LABS" to the right of the icon
     try:
         brand_main = (
             cq.Workplane("XZ")
             .workplane(offset=BASE_D / 2)
-            .center(8, brand_z + 4)
+            .center(4, brand_z + 4)
             .text("SOMNI", BRAND_FONT_SIZE, -BRAND_DEPTH, font="sans-serif")
         )
         base = base.cut(brand_main)
         brand_sub = (
             cq.Workplane("XZ")
             .workplane(offset=BASE_D / 2)
-            .center(8, brand_z - 6)
+            .center(4, brand_z - 6)
             .text("LABS", BRAND_SUB_SIZE, -BRAND_DEPTH, font="sans-serif")
         )
         base = base.cut(brand_sub)
     except Exception:
-        # Fallback: rectangular recess if text rendering isn't available
         brand_recess = (
             cq.Workplane("XY")
             .workplane(offset=brand_z)
-            .center(8, BASE_D / 2)
+            .center(4, BASE_D / 2)
             .rect(45, 16)
             .extrude(-BRAND_DEPTH)
         )
