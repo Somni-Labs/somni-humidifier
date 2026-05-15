@@ -734,6 +734,60 @@ def build_base():
     )
     base = base.cut(usbc_cutout)
 
+    # === WIRE CHANNEL NETWORK (3mm × 3mm open-top floor grooves) ===
+
+    # Power trunk: runs along electronics column (X=elec_col_x) from
+    # USB-C port (rear wall) all the way to PD+Buck pocket (front).
+    _power_trunk_y_start = pd_buck_y - _pd_buck_d / 2 - 2
+    _power_trunk_y_end = interior_y_max
+    _power_trunk_len = _power_trunk_y_end - _power_trunk_y_start
+    power_trunk = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W, _power_trunk_len, CHANNEL_D)
+        .translate((elec_col_x, (_power_trunk_y_start + _power_trunk_y_end) / 2,
+                     FLOOR_H + CHANNEL_D / 2))
+    )
+    base = base.cut(power_trunk)
+
+    # Signal trunk: short channel bridging the gap between MOSFET and ESP32.
+    _sig_y_start = mosfet_y + MOSFET_BOARD_W / 2
+    _sig_y_end = esp32_y - ESP32_W / 2
+    _sig_len = max(_sig_y_end - _sig_y_start, 1)
+    signal_trunk = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W, _sig_len + 4, CHANNEL_D)
+        .translate((elec_col_x, (_sig_y_start + _sig_y_end) / 2,
+                     FLOOR_H + CHANNEL_D / 2))
+    )
+    base = base.cut(signal_trunk)
+
+    # Pump power spurs: MOSFET pocket → right divider, one per pump Y position.
+    _spur_x_start = DIVIDER_DRY_X + WALL_INNER / 2 + 1
+    _spur_x_end = elec_col_x - MOSFET_BOARD_D / 2 - 1
+    _spur_len = _spur_x_end - _spur_x_start
+    for py in pump_y_positions:
+        pump_spur = (
+            cq.Workplane("XY")
+            .box(_spur_len, CHANNEL_W, CHANNEL_D)
+            .translate(((_spur_x_start + _spur_x_end) / 2, py,
+                         FLOOR_H + CHANNEL_D / 2))
+        )
+        base = base.cut(pump_spur)
+
+    # Collector channel: runs along Y at the MOSFET pocket's left edge,
+    # connecting all 5 pump spur endpoints to the MOSFET pocket.
+    _collector_x = _spur_x_end + CHANNEL_W / 2
+    _collector_y_start = pump_y_positions[0]
+    _collector_y_end = pump_y_positions[-1]
+    _collector_len = _collector_y_end - _collector_y_start + CHANNEL_W
+    collector = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W, _collector_len, CHANNEL_D)
+        .translate((_collector_x, (_collector_y_start + _collector_y_end) / 2,
+                     FLOOR_H + CHANNEL_D / 2))
+    )
+    base = base.cut(collector)
+
     # --- Rubber feet ---
     foot_coords = [
         (-BASE_W / 2 + FOOT_INSET, -BASE_D / 2 + FOOT_INSET),
