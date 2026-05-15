@@ -111,20 +111,37 @@ PUMP_SPACING = 26            # center-to-center along Y axis
 # Pumps sit centered between the two dividers
 PUMP_CENTER_X = (DIVIDER_WET_X + DIVIDER_DRY_X) / 2
 
-# --- Oil bottles (5x, in dry zone, front row) ---
-BOTTLE_DIA = 22              # 5ml essential oil bottle body diameter
-BOTTLE_HEIGHT = 55           # bottle total height (must fit in base height)
+# --- Oil bottles (5x, in dry zone) ---
+# 15ml essential oil bottles (industry standard): body ~22mm dia, cap ~18mm dia
+# Total height ~55mm with cap (fits in 67mm usable height).
+# NOTE: 50ml bottles (33mm × 95mm) are too tall for the 70mm base.
+# Parametric — change BOTTLE_DIA/HEIGHT to accommodate other sizes.
+BOTTLE_DIA = 22              # 15ml bottle body diameter
+BOTTLE_CAP_DIA = 18          # dropper/screw cap diameter (narrower than body)
+BOTTLE_HEIGHT = 55           # total height with cap (must fit in base)
 BOTTLE_COUNT = 5
-BOTTLE_WELL_DEPTH = 4        # shallow ring to keep bottle from sliding
-BOTTLE_WELL_DIA = BOTTLE_DIA + 2 * TOL + 2  # ~23.8mm
+BOTTLE_WELL_DEPTH = 6        # deeper ring for secure seating
+BOTTLE_WELL_DIA = BOTTLE_DIA + 2 * TOL + 2  # ~24.8mm
 BOTTLE_SPACING = 26          # center-to-center along Y axis
-# Bottles sit in the dry zone, front half (negative Y area)
+# Bottles sit in the dry zone, centered front-to-back
 BOTTLE_ROW_X = DIVIDER_DRY_X + WALL_INNER / 2 + BOTTLE_WELL_DIA / 2 + 3
-BOTTLE_ROW_Y_CENTER = 0      # centered front-to-back
+BOTTLE_ROW_Y_CENTER = 0
 
 # Bottle Y positions (row of 5)
 bottle_y_positions = [-(BOTTLE_COUNT - 1) / 2 * BOTTLE_SPACING + i * BOTTLE_SPACING
                        for i in range(BOTTLE_COUNT)]
+
+# --- Bottle retention clips (swing-latch over bottle neck) ---
+# Printed hinged clips that swing over the bottle neck to lock it in place.
+# Each clip pivots on a small pin at the base of the retaining wall and
+# snaps over the cap/neck area. The clip arm spans across the bottle top.
+CLIP_ARM_W = 4               # width of the clip arm
+CLIP_ARM_H = 3               # thickness of the clip arm
+CLIP_PIN_DIA = 2.0           # hinge pin diameter
+CLIP_PIN_H = 5               # hinge post height (above retainer ring)
+CLIP_CATCH_H = 8             # height of the catch hook on the opposite side
+# Clip pivots on the "left" side of each well (toward divider),
+# swings over the bottle, and catches on the "right" side.
 
 # --- Tube clips (printed guide rings on the base floor) ---
 TUBE_CLIP_DIA = 6            # outer diameter of tube guide
@@ -442,9 +459,10 @@ def build_base():
     # Front: 5 bottle wells in a row along Y
     # Rear: electronics (ESP32, MOSFETs, PD trigger, BME280, atomizer driver)
 
-    # Bottle wells — shallow circular pockets to locate each bottle
+    # Bottle wells — deeper pockets with tall retaining walls + swing latch
+    retainer_h = 18  # tall enough to grip ~1/3 of the bottle body
     for by in bottle_y_positions:
-        # Well pocket
+        # Well pocket (deeper for secure seating)
         well = (
             cq.Workplane("XY")
             .workplane(offset=FLOOR_H)
@@ -454,16 +472,55 @@ def build_base():
         )
         base = base.cut(well)
 
-        # Low retaining wall around each well (3mm tall ring)
+        # Tall retaining wall around each well — grips the bottle body
         retainer = (
             cq.Workplane("XY")
             .workplane(offset=FLOOR_H)
             .center(BOTTLE_ROW_X, by)
-            .circle(BOTTLE_WELL_DIA / 2 + 1.5)
+            .circle(BOTTLE_WELL_DIA / 2 + 2)
             .circle(BOTTLE_WELL_DIA / 2)
-            .extrude(BOTTLE_WELL_DEPTH + 3)
+            .extrude(retainer_h)
         )
         base = base.union(retainer)
+
+        # --- Swing latch (hinge + arm + catch) ---
+        # Hinge post on the left side (toward divider) of the retainer ring.
+        # The latch arm will be a separate printed piece that pivots on
+        # this pin and snaps into the catch hook on the opposite side.
+        hinge_x = BOTTLE_ROW_X - BOTTLE_WELL_DIA / 2 - 2
+        hinge_z = FLOOR_H + retainer_h
+
+        # Hinge post (vertical pin the latch arm rotates on)
+        hinge_post = (
+            cq.Workplane("XY")
+            .workplane(offset=hinge_z)
+            .center(hinge_x, by)
+            .circle(CLIP_PIN_DIA / 2)
+            .extrude(CLIP_PIN_H)
+        )
+        base = base.union(hinge_post)
+
+        # Catch hook on the right side (opposite the hinge)
+        # Small nub that the swing arm snaps behind when closed
+        catch_x = BOTTLE_ROW_X + BOTTLE_WELL_DIA / 2 + 2
+        catch_post = (
+            cq.Workplane("XY")
+            .workplane(offset=hinge_z)
+            .center(catch_x, by)
+            .rect(CLIP_ARM_W, CLIP_ARM_W)
+            .extrude(CLIP_CATCH_H)
+        )
+        base = base.union(catch_post)
+
+        # Catch undercut notch (the arm hooks behind this)
+        catch_notch = (
+            cq.Workplane("XY")
+            .workplane(offset=hinge_z + CLIP_CATCH_H - 3)
+            .center(catch_x - CLIP_ARM_W / 2, by)
+            .rect(CLIP_ARM_W, CLIP_ARM_W + 1)
+            .extrude(1.5)
+        )
+        base = base.cut(catch_notch)
 
     # Tube clip posts — guide tubes from bottle wells to pump intake holes
     # One clip per bottle, positioned between the bottle and the right divider
@@ -1221,6 +1278,33 @@ stor_marker = (
 )
 show_object(stor_marker, name="zone_storage",
             options={"color": (0.96, 0.49, 0.13, 0.85)})  # orange
+
+# --- Button color indicators (colored discs on top shell surface) ---
+# Power button — RED disc
+btn_x_center = 0
+power_btn_x = btn_x_center + (0 - (TOUCH_BTN_COUNT - 1) / 2) * TOUCH_BTN_SPACING
+mist_btn_x = btn_x_center + (1 - (TOUCH_BTN_COUNT - 1) / 2) * TOUCH_BTN_SPACING
+
+power_btn_marker = (
+    cq.Workplane("XY")
+    .workplane(offset=BASE_H + TOP_H + 0.1)
+    .center(power_btn_x, TOUCH_BTN_Y)
+    .circle(TOUCH_ZONE_DIA / 2 - 2)
+    .extrude(0.5)
+)
+show_object(power_btn_marker, name="btn_power",
+            options={"color": (0.9, 0.15, 0.15, 0.95)})  # red
+
+# Mist intensity button — CYAN disc
+mist_btn_marker = (
+    cq.Workplane("XY")
+    .workplane(offset=BASE_H + TOP_H + 0.1)
+    .center(mist_btn_x, TOUCH_BTN_Y)
+    .circle(TOUCH_ZONE_DIA / 2 - 2)
+    .extrude(0.5)
+)
+show_object(mist_btn_marker, name="btn_mist",
+            options={"color": (0.08, 0.82, 0.82, 0.95)})  # cyan/teal
 
 
 # =============================================================================
