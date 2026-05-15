@@ -209,6 +209,31 @@ def tapered_box(width_bottom, depth_bottom, width_top, depth_top, height):
     return result
 
 
+def panel_line_cut(body, z_height, total_height, w_bottom, d_bottom, w_top, d_top, width, depth):
+    """Cut a horizontal groove around the perimeter at a given Z height.
+
+    Interpolates the taper to find correct XY dimensions at that height,
+    then cuts a shallow rectangular ring — the 'armor seam' panel line.
+    """
+    t = z_height / total_height
+    w_at_z = w_bottom + t * (w_top - w_bottom)
+    d_at_z = d_bottom + t * (d_top - d_bottom)
+    outer = (
+        cq.Workplane("XY")
+        .workplane(offset=z_height - width / 2)
+        .rect(w_at_z + 1, d_at_z + 1)
+        .extrude(width)
+    )
+    inner = (
+        cq.Workplane("XY")
+        .workplane(offset=z_height - width / 2 - 0.1)
+        .rect(w_at_z - depth * 2, d_at_z - depth * 2)
+        .extrude(width + 0.2)
+    )
+    groove = outer.cut(inner)
+    return body.cut(groove)
+
+
 # =============================================================================
 # BUILD FUNCTIONS
 # =============================================================================
@@ -234,6 +259,19 @@ def build_base():
     ).translate((0, 0, FLOOR_H))
 
     base = base.cut(cavity)
+
+    # --- Panel line ---
+    base = panel_line_cut(base, PANEL_LINE_Z_BASE, BASE_H, BASE_W, BASE_D, MEETING_W, MEETING_D, PANEL_LINE_WIDTH, PANEL_LINE_DEPTH)
+
+    # --- Wet/dry divider wall ---
+    divider = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(DIVIDER_X, 0)
+        .rect(WALL_INNER, BASE_D - WALL * 2 - 2)
+        .extrude(BASE_H - FLOOR_H - WALL - 2)
+    )
+    base = base.union(divider)
 
     return base
 
