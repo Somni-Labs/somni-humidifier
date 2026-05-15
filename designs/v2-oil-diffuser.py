@@ -1,31 +1,38 @@
 """
-Somni Oil Diffuser — V2.3 "Night City"
+Somni Oil Diffuser — V3.0 "Night City"
 
 Cyberpunk-styled essential oil diffuser with automated scent blending.
 200x160mm rectangular footprint (fits QIDI Q2 245x255mm bed).
 
+REAL-WORLD BOM — all component dimensions verified from sourcing research:
+  Pumps:     5× JIHPUMP WX3 micro peristaltic (23×35×25mm, 3.7-6V)
+  Atomizer:  20mm/113KHz piezo + 35×25mm driver board (5V, 250-400mA)
+  MCU:       ESP32 DevKit (55×28mm) — WiFi, 6× GPIO for MOSFETs
+  MOSFETs:   6× IRLZ44N/D4184 modules (25×20mm, 3.3V logic-level)
+  Power:     USB-C → CH224K PD trigger (24×18mm) → 12V → MP1584EN buck (22×17mm) → 5V
+  LEDs:      WS2812B strip (12mm wide, 5V), continuous perimeter loop
+  Buttons:   2× TTP223 capacitive touch (11×15mm) — power + mist intensity
+  Sensor:    Capacitive water level sensor on divider wall
+
 Two-part enclosure connected via magnets:
   BASE  — holds everything: reservoir, atomizer, pumps, bottles, electronics
-  SHELL — three-zone functional lid: fill chute, mist chimney, storage
+  SHELL — three-zone functional lid: fill chute + mist chimney, transit, storage
 
-Bottles sit upright in the base. Lift the top shell off for full access
-to bottles, pumps, electronics, and reservoir. No hatch, no hinges.
+Bottles sit upright in the base. Lift the top shell off for full access.
 
 Base layout (three zones, left to right):
-  WET ZONE  (left,   ~55%)  — water reservoir + atomizer mount
-  PUMP ROW  (center strip)  — 5 peristaltic pumps on a divider wall
-  DRY ZONE  (right,  ~45%)  — 5 bottle wells (front) + electronics (rear)
+  WET ZONE  (left)    — water reservoir + atomizer mount
+  PUMP ROW  (center)  — 5× WX3 micro pumps (narrower than V2.3)
+  DRY ZONE  (right)   — 5 bottle wells + electronics bay
 
 Top shell layout (three zones, matching base dividers):
   MIST+FILL  (left)   — mist chimney + chevron exhaust + water fill chute
   TRANSIT    (center) — structural / cable routing gap above pump row
   STORAGE    (right)  — compartment for accessories/spare bottles
 
-Tube path: bottle → short tube → pump intake (same zone, ~30mm) →
-           pump output → into reservoir (through divider)
-
-Aesthetic: angular tapered sides, hex mesh panels with LED glow-through,
-panel line chamfers, chevron exhaust port. Color-coded zones for clarity.
+Power architecture: 5V single-rail (all loads are 5V)
+  USB-C PD (12V) → buck converter → 5V rail
+  Alt: USB-C 5V/3A direct (no PD needed for light use)
 
 Loadable by cadquery-server via show_object().
 """
@@ -75,9 +82,10 @@ FLOOR_H = 3.0
 # Wet zone: X < DIVIDER_WET_X
 # Pump row: DIVIDER_WET_X < X < DIVIDER_DRY_X (width = pump body + clearance)
 # Dry zone: X > DIVIDER_DRY_X (bottles + electronics)
-DIVIDER_WET_X = -20      # left divider (wet/pump boundary)
-DIVIDER_DRY_X = 25       # right divider (pump/dry boundary)
-# Pump row width: 45mm — fits 38mm pump body + clearance
+# V3.0: WX3 pumps oriented 35mm along X, need 39mm pump row (35 + 4mm clearance)
+DIVIDER_WET_X = -17      # left divider (wet/pump boundary)
+DIVIDER_DRY_X = 22       # right divider (pump/dry boundary)
+# Pump row width: 39mm — fits 35mm WX3 body (oriented lengthwise) + clearance
 
 # --- Water reservoir (wet zone) ---
 RESERVOIR_DEPTH = BASE_H - FLOOR_H - WALL
@@ -90,14 +98,18 @@ ATOMIZER_MOUNT_DIA = 26
 ATOMIZER_POS_X = -55         # well into wet zone (left side)
 ATOMIZER_POS_Y = 0           # centered front-to-back
 
-# --- Peristaltic pumps (5x, in pump row) ---
-PUMP_BODY_W = 38
-PUMP_BODY_D = 28             # depth along Y (verify — some pumps are ~28mm)
-PUMP_BODY_H = 27
+# --- Peristaltic pumps (5x JIHPUMP WX3 micro, in pump row) ---
+# WX3: 23mm wide × 35mm long × 25mm tall, 3.7-6V, up to 10ml/min
+# Oriented with 35mm (length) along X (across pump row) and 23mm (width) along Y.
+# At 26mm Y-spacing: 3mm clearance between 23mm bodies.
+# Pump row needs ~39mm in X (35mm body + 2mm clearance each side).
+PUMP_BODY_W = 35             # WX3 length oriented along X (across pump row)
+PUMP_BODY_D = 23             # WX3 width oriented along Y (along the row)
+PUMP_BODY_H = 25             # WX3 height
 PUMP_COUNT = 5
-PUMP_SPACING = 28            # center-to-center along Y axis
+PUMP_SPACING = 26            # center-to-center along Y axis
 # Pumps sit centered between the two dividers
-PUMP_CENTER_X = (DIVIDER_WET_X + DIVIDER_DRY_X) / 2  # = 2.5
+PUMP_CENTER_X = (DIVIDER_WET_X + DIVIDER_DRY_X) / 2
 
 # --- Oil bottles (5x, in dry zone, front row) ---
 BOTTLE_DIA = 22              # 5ml essential oil bottle body diameter
@@ -119,20 +131,34 @@ TUBE_CLIP_DIA = 6            # outer diameter of tube guide
 TUBE_CLIP_H = 5              # height of guide post
 
 # --- Electronics bay (dry zone, behind bottles) ---
-ESP32_W = 55
+ESP32_W = 55                 # ESP32 DevKit V1 (verified)
 ESP32_D = 28
 ESP32_H = 13
-MOSFET_W = 25
+MOSFET_W = 25                # IRLZ44N / D4184 module (verified)
 MOSFET_D = 20
 MOSFET_H = 15
-PD_TRIGGER_W = 30
+MOSFET_COUNT = 6             # 5 pumps + 1 atomizer
+PD_TRIGGER_W = 24            # CH224K module (verified, was 30)
 PD_TRIGGER_D = 18
-PD_TRIGGER_H = 10
+PD_TRIGGER_H = 8
+BUCK_CONV_W = 22             # MP1584EN buck converter (NEW, verified)
+BUCK_CONV_D = 17
+BUCK_CONV_H = 5
 BME280_W = 15
 BME280_D = 12
 BME280_H = 5
 # Electronics sit behind the bottle row (positive Y area of dry zone)
 ELECTRONICS_ROW_X = BOTTLE_ROW_X + 20  # offset right from bottles
+
+# --- Capacitive touch buttons (top shell surface) ---
+TOUCH_BTN_W = 15             # TTP223 module width (verified)
+TOUCH_BTN_D = 11             # TTP223 module depth (verified)
+TOUCH_BTN_H = 2              # module thickness (glued to underside)
+TOUCH_ZONE_DIA = 20          # touch-sensitive area on top surface
+TOUCH_BTN_COUNT = 2          # power + mist intensity
+TOUCH_BTN_SPACING = 35       # center-to-center between buttons
+# Buttons centered on the front edge of the top shell, Y offset toward front
+TOUCH_BTN_Y = -40            # front half of top shell
 
 # --- USB-C port (rear panel) ---
 USBC_PORT_W = 12
@@ -172,8 +198,8 @@ FILL_CHUTE_LIP_H = 3               # raised lip to prevent spills
 
 # --- Top shell zone dividers ---
 # Mirror the base dividers but in the top shell coordinate space
-TOP_DIVIDER_WET_X = DIVIDER_WET_X    # left divider (fill chute | mist zone)
-TOP_DIVIDER_DRY_X = DIVIDER_DRY_X    # right divider (mist zone | storage)
+TOP_DIVIDER_WET_X = DIVIDER_WET_X    # left divider (mist+fill | transit)
+TOP_DIVIDER_DRY_X = DIVIDER_DRY_X    # right divider (transit | storage)
 
 # --- Storage compartment (top shell, right zone) ---
 STORAGE_LID_RECESS = 2.0       # recessed edge for a snap-fit lid
@@ -476,21 +502,26 @@ def build_base():
     )
     base = base.cut(esp32_pocket)
 
-    # 5 MOSFET pockets in a row along Y, between bottles and ESP32
-    mosfet_x = dry_center_x - 8
-    mosfet_y_start = pump_y_positions[0]
-    for i in range(5):
-        my = mosfet_y_start + i * PUMP_SPACING
+    # 6 MOSFET pockets: 5 for pumps + 1 for atomizer
+    # Arranged in two columns of 3, between bottles and ESP32
+    mosfet_x_left = dry_center_x - MOSFET_W / 2 - 2
+    mosfet_x_right = dry_center_x + MOSFET_W / 2 + 2
+    mosfet_y_positions = [-(MOSFET_COUNT - 1) / 2 * (MOSFET_D + 3) + i * (MOSFET_D + 3)
+                          for i in range(MOSFET_COUNT)]
+    # Place in two columns of 3
+    for i in range(MOSFET_COUNT):
+        mx = mosfet_x_left if i < 3 else mosfet_x_right
+        my = mosfet_y_positions[i % 3] if i >= 3 else mosfet_y_positions[i]
         mosfet_pocket = (
             cq.Workplane("XY")
             .workplane(offset=FLOOR_H)
-            .center(mosfet_x, my)
+            .center(mx, my)
             .rect(MOSFET_W, MOSFET_D)
             .extrude(MOSFET_H + 2)
         )
         base = base.cut(mosfet_pocket)
 
-    # PD trigger pocket (rear corner)
+    # PD trigger pocket (CH224K, 24×18mm — rear of dry zone)
     pd_x = dry_center_x + 15
     pd_y = MEETING_D / 2 - WALL - PD_TRIGGER_D / 2 - 5
     pd_pocket = (
@@ -502,7 +533,19 @@ def build_base():
     )
     base = base.cut(pd_pocket)
 
-    # Atomizer driver pocket (near left divider in dry zone)
+    # Buck converter pocket (MP1584EN, 22×17mm — next to PD trigger)
+    buck_x = pd_x - PD_TRIGGER_W / 2 - BUCK_CONV_W / 2 - 3
+    buck_y = pd_y
+    buck_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(buck_x, buck_y)
+        .rect(BUCK_CONV_W, BUCK_CONV_D)
+        .extrude(BUCK_CONV_H + 2)
+    )
+    base = base.cut(buck_pocket)
+
+    # Atomizer driver pocket (35×25mm — near left divider in dry zone)
     driver_x = DIVIDER_DRY_X + WALL_INNER / 2 + 5 + ATOMIZER_DRIVER_W / 2
     driver_pocket = (
         cq.Workplane("XY")
@@ -970,6 +1013,53 @@ def build_top_shell():
         shell = shell.cut(lid_recess)
 
     # =============================================
+    # CAPACITIVE TOUCH BUTTONS (top surface, front edge)
+    # =============================================
+    # Two TTP223 modules glued to the underside of the top shell ceiling.
+    # Touch zones are indicated by shallow circular deboss marks on the
+    # outer top surface (cosmetic only — the capacitive sensing works
+    # through the 1.5mm PETG wall). Thin the ceiling locally to 1.5mm
+    # for reliable touch sensing through the plastic.
+
+    # Button positions: centered left-right on the front half of the top
+    btn_x_center = 0  # centered on X axis
+    for btn_i in range(TOUCH_BTN_COUNT):
+        bx = btn_x_center + (btn_i - (TOUCH_BTN_COUNT - 1) / 2) * TOUCH_BTN_SPACING
+        by = TOUCH_BTN_Y
+
+        # Cosmetic circle deboss on outer surface (0.5mm deep indicator ring)
+        indicator = (
+            cq.Workplane("XY")
+            .workplane(offset=TOP_H - 0.5)
+            .center(bx, by)
+            .circle(TOUCH_ZONE_DIA / 2)
+            .circle(TOUCH_ZONE_DIA / 2 - 1.5)
+            .extrude(0.6)
+        )
+        shell = shell.cut(indicator)
+
+        # Thin the ceiling above the touch zone to 1.5mm for sensing
+        # (remove material from the underside to create a thinner ceiling)
+        thin_zone = (
+            cq.Workplane("XY")
+            .workplane(offset=TOP_H - WALL)
+            .center(bx, by)
+            .circle(TOUCH_ZONE_DIA / 2 + 2)
+            .extrude(WALL - 1.5)  # thin from WALL (3mm) to 1.5mm
+        )
+        shell = shell.cut(thin_zone)
+
+        # TTP223 module pocket (recessed into the ceiling underside)
+        module_pocket = (
+            cq.Workplane("XY")
+            .workplane(offset=TOP_H - WALL - TOUCH_BTN_H - 0.5)
+            .center(bx, by)
+            .rect(TOUCH_BTN_W + 1, TOUCH_BTN_D + 1)
+            .extrude(TOUCH_BTN_H + 0.5)
+        )
+        shell = shell.cut(module_pocket)
+
+    # =============================================
     # SHARED FEATURES
     # =============================================
 
@@ -1145,8 +1235,18 @@ _dry_left = DIVIDER_DRY_X + WALL_INNER / 2
 _dry_right = MEETING_W / 2 - WALL
 
 print("=" * 60)
-print("Somni Oil Diffuser V2.3 — Night City")
+print("Somni Oil Diffuser V3.0 — Night City")
 print("=" * 60)
+print()
+print("--- BOM (verified dimensions) ---")
+print(f"Pumps:       {PUMP_COUNT}x JIHPUMP WX3 ({PUMP_BODY_W}x{PUMP_BODY_D}x{PUMP_BODY_H}mm, 5V)")
+print(f"Atomizer:    20mm/113KHz piezo + {ATOMIZER_DRIVER_W}x{ATOMIZER_DRIVER_D}mm driver (5V)")
+print(f"MCU:         ESP32 DevKit ({ESP32_W}x{ESP32_D}mm)")
+print(f"MOSFETs:     {MOSFET_COUNT}x IRLZ44N ({MOSFET_W}x{MOSFET_D}mm)")
+print(f"PD trigger:  CH224K ({PD_TRIGGER_W}x{PD_TRIGGER_D}mm)")
+print(f"Buck conv:   MP1584EN ({BUCK_CONV_W}x{BUCK_CONV_D}mm, 12V→5V)")
+print(f"Buttons:     {TOUCH_BTN_COUNT}x TTP223 capacitive ({TOUCH_BTN_W}x{TOUCH_BTN_D}mm)")
+print(f"LEDs:        WS2812B strip ({LED_CHANNEL_W}mm wide)")
 print()
 print("--- Enclosure ---")
 print(f"Base:        {BASE_W}x{BASE_D}x{BASE_H}mm (bottom)")
@@ -1160,15 +1260,16 @@ print(f"  Reservoir: depth={RESERVOIR_DEPTH:.1f}mm")
 print(f"  Atomizer:  {ATOMIZER_MOUNT_DIA}mm at ({ATOMIZER_POS_X}, {ATOMIZER_POS_Y})")
 print()
 print(f"PUMP ROW:    X={_pump_left} to {_pump_right}mm ({_pump_right - _pump_left}mm wide)  [AMBER]")
-print(f"  Pumps:     {PUMP_COUNT}x at Y={[f'{y:.0f}' for y in pump_y_positions]}")
-print(f"  Body:      {PUMP_BODY_W}x{PUMP_BODY_D}x{PUMP_BODY_H}mm each")
+print(f"  Pumps:     {PUMP_COUNT}x WX3 at Y={[f'{y:.0f}' for y in pump_y_positions]}")
+print(f"  Body:      {PUMP_BODY_W}x{PUMP_BODY_D}x{PUMP_BODY_H}mm each (oriented 35mm across row)")
 print()
 print(f"DRY ZONE:    X={_dry_left:.1f} to {_dry_right:.1f}mm ({_dry_right - _dry_left:.0f}mm wide)  [PURPLE]")
 print(f"  Bottles:   {BOTTLE_COUNT}x {BOTTLE_DIA}mm dia wells at X={BOTTLE_ROW_X:.1f}")
 print(f"             Y={[f'{y:.0f}' for y in bottle_y_positions]}")
 print(f"  ESP32:     {ESP32_W}x{ESP32_D}mm (rotated)")
-print(f"  MOSFETs:   {PUMP_COUNT}x {MOSFET_W}x{MOSFET_D}mm")
-print(f"  PD trigger:{PD_TRIGGER_W}x{PD_TRIGGER_D}mm")
+print(f"  MOSFETs:   {MOSFET_COUNT}x {MOSFET_W}x{MOSFET_D}mm (2 columns of 3)")
+print(f"  PD trigger:{PD_TRIGGER_W}x{PD_TRIGGER_D}mm (CH224K)")
+print(f"  Buck conv: {BUCK_CONV_W}x{BUCK_CONV_D}mm (MP1584EN)")
 print(f"  BME280:    {BME280_W}x{BME280_D}mm")
 print(f"  USB-C:     {USBC_PORT_W}x{USBC_PORT_H}mm (rear wall)")
 print()
@@ -1185,7 +1286,12 @@ print()
 print(f"STORAGE:     above dry zone  [ORANGE]")
 print(f"  Compartment for spare bottles, accessories, etc.")
 print(f"  Lid recess: {STORAGE_LID_RECESS}mm step for snap-fit dust cover")
-print(f"  Access:     LIFT TOP SHELL OFF — full access to everything")
+print()
+print(f"BUTTONS:     {TOUCH_BTN_COUNT}x TTP223 capacitive touch on top surface")
+print(f"  Power + Mist Intensity, {TOUCH_BTN_SPACING}mm apart")
+print(f"  Sensing through 1.5mm PETG ceiling")
+print()
+print(f"ACCESS:      LIFT TOP SHELL OFF — full access to everything")
 print()
 print("--- Connections ---")
 print(f"Magnets:     {len(magnet_positions)}x {MAGNET_DIA}mm dia x {MAGNET_H}mm")
@@ -1193,5 +1299,10 @@ print(f"Pins:        {len(pin_positions)}x {PIN_DIA}mm dia x {PIN_H}mm")
 print(f"Hex mesh:    all 4 walls (front + rear + left + right)")
 print(f"LED strip:   continuous perimeter loop, {LED_CHANNEL_W}x{LED_CHANNEL_D}mm channel")
 print(f"Branding:    'SOMNI LABS' debossed on rear panel ({BRAND_FONT_SIZE}pt + {BRAND_SUB_SIZE}pt)")
+print()
+print("--- Power Architecture ---")
+print(f"USB-C PD → CH224K (12V) → MP1584EN → 5V rail")
+print(f"  5V rail: pumps + atomizer + ESP32 + LEDs")
+print(f"  Alt: USB-C 5V/3A direct (no PD needed)")
 print()
 print(f"Print bed:   {BASE_W}x{BASE_D}mm fits QIDI Q2 (245x255mm)")
