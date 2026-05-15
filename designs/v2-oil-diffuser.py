@@ -1362,11 +1362,11 @@ def build_components():
     """Build simplified solid models of all internal components at their
     installed positions. Returns a dict of {name: (solid, color)}.
 
-    V3.2 Layout:
+    V3.3 Layout (2+3 pump grid, 3+2 bottle grid):
       Wet zone: atomizer piezo disk, water
-      Center zone (lower): 5x pumps
+      Center zone (lower): 5x pumps in 2+3 grid
       Center zone (upper / tray): ESP32, MOSFET, PD+Buck, atomizer driver, BME280
-      Top shell: 5x bottles hanging from ceiling wells
+      Top shell: 5x bottles hanging from ceiling wells in 3+2 grid
     """
 
     parts = {}
@@ -1432,14 +1432,14 @@ def build_components():
     parts["water"] = (water, (0.15, 0.4, 0.85, 0.25))  # translucent blue
 
     # =============================================
-    # CENTER ZONE — Lower level (pumps)
+    # CENTER ZONE — Lower level (pumps, 2+3 grid)
     # =============================================
 
-    for i, py in enumerate(pump_y_positions):
+    for i, (px, py) in enumerate(pump_grid_positions):
         pump = (
             cq.Workplane("XY")
             .workplane(offset=FLOOR_H + 0.5)
-            .center(PUMP_CENTER_X, py)
+            .center(px, py)
             .rect(PUMP_BODY_W, PUMP_BODY_D)
             .extrude(PUMP_BODY_H)
         )
@@ -1510,11 +1510,11 @@ def build_components():
     parts["bme280"] = (bme280, (0.3, 0.3, 0.8, 0.95))  # light blue
 
     # =============================================
-    # TOP SHELL — Bottles (hanging from ceiling wells)
+    # TOP SHELL — Bottles (hanging from ceiling wells, 3+2 grid)
     # =============================================
 
     _ceiling_z_top = BASE_H + TOP_H - WALL  # top shell ceiling in assembly coords
-    for i, by in enumerate(bottle_y_positions):
+    for i, (bx, by) in enumerate(bottle_grid_positions):
         bottle_body_h = BOTTLE_HEIGHT - 15
         cap_h = 15
         # Bottle hangs cap-down: cap at top (near ceiling), body below
@@ -1525,14 +1525,14 @@ def build_components():
         cap = (
             cq.Workplane("XY")
             .workplane(offset=cap_bot_z)
-            .center(BOTTLE_ROW_X_TOP, by)
+            .center(bx, by)
             .circle(BOTTLE_CAP_DIA / 2)
             .extrude(cap_h)
         )
         body = (
             cq.Workplane("XY")
             .workplane(offset=body_bot_z)
-            .center(BOTTLE_ROW_X_TOP, by)
+            .center(bx, by)
             .circle(BOTTLE_DIA / 2)
             .extrude(bottle_body_h)
         )
@@ -1585,11 +1585,11 @@ def build_components():
     # WIRE CHANNEL VISUALIZATION (base floor only)
     # =============================================
     _ch_z = FLOOR_H + CHANNEL_D / 2
-    _atm_spur_y = -(MEETING_D / 2 - WALL - 2) + 3
+    _atm_spur_y = 0
 
     # Atomizer spur segment 1: center zone floor
     _as1_xs = DIVIDER_WET_X + WALL_INNER / 2 + 1
-    _as1_xe = PUMP_CENTER_X
+    _as1_xe = _pump_left_col_cx - PUMP_BODY_W / 2 - 1
     atm_s1_vis = (
         cq.Workplane("XY")
         .box(abs(_as1_xe - _as1_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
@@ -1607,13 +1607,29 @@ def build_components():
     )
     parts["wire_atm_spur_2"] = (atm_s2_vis, (0.85, 0.15, 0.85, 0.85))
 
-    # Atomizer spur segment 3: wet zone vertical turn to atomizer
-    atm_s3_vis = (
+    # =============================================
+    # TUBING CHANNEL VISUALIZATION (base floor)
+    # =============================================
+    _tube_collector_x = DIVIDER_WET_X + WALL_INNER / 2 + 3
+
+    # Collector channel
+    tube_coll_vis = (
         cq.Workplane("XY")
-        .box(CHANNEL_W - 0.5, abs(ATOMIZER_POS_Y - _atm_spur_y), CHANNEL_D - 0.5)
-        .translate((ATOMIZER_POS_X, (_atm_spur_y + ATOMIZER_POS_Y) / 2, _ch_z))
+        .box(TUBE_CHANNEL_W - 0.5, 58, TUBE_CHANNEL_D - 0.5)
+        .translate((_tube_collector_x, 0, FLOOR_H + TUBE_CHANNEL_D / 2))
     )
-    parts["wire_atm_spur_3"] = (atm_s3_vis, (0.85, 0.15, 0.85, 0.85))
+    parts["tube_collector"] = (tube_coll_vis, (0.85, 0.15, 0.55, 0.8))  # magenta
+
+    # Spur channels from right-column pumps
+    for si, rpy in enumerate(_pump_right_col_ys):
+        spur_len = abs(_pump_right_col_cx - _tube_collector_x)
+        spur_vis = (
+            cq.Workplane("XY")
+            .box(spur_len - 1, TUBE_SPUR_W - 0.5, TUBE_CHANNEL_D - 0.5)
+            .translate(((_pump_right_col_cx + _tube_collector_x) / 2,
+                        rpy, FLOOR_H + TUBE_CHANNEL_D / 2))
+        )
+        parts[f"tube_spur_{si}"] = (spur_vis, (0.85, 0.15, 0.55, 0.8))  # magenta
 
     return parts
 
