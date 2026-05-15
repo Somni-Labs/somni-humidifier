@@ -1,5 +1,5 @@
 """
-Somni Oil Diffuser — V3.0 "Night City"
+Somni Oil Diffuser — V3.1 "Night City"
 
 Cyberpunk-styled essential oil diffuser with automated scent blending.
 200x160mm rectangular footprint (fits QIDI Q2 245x255mm bed).
@@ -14,20 +14,22 @@ REAL-WORLD BOM — all component dimensions verified from sourcing research:
   Buttons:   2× TTP223 capacitive touch (11×15mm) — power + mist intensity
   Sensor:    Capacitive water level sensor on divider wall
 
-Two-part enclosure connected via magnets:
-  BASE  — holds everything: reservoir, atomizer, pumps, bottles, electronics
+Three-part enclosure connected via magnets:
+  BASE  — holds reservoir, atomizer, pumps, bottles (three zones)
+  TRAY  — lift-out electronics shelf, sits above pumps in center zone
   SHELL — three-zone functional lid: fill chute + mist chimney, transit, storage
 
 Bottles sit upright in the base. Lift the top shell off for full access.
+Electronics tray lifts out for pump access (building Legos assembly).
 
 Base layout (three zones, left to right):
-  WET ZONE  (left)    — water reservoir + atomizer mount
-  PUMP ROW  (center)  — 5× WX3 micro pumps (narrower than V2.3)
-  DRY ZONE  (right)   — 5 bottle wells + electronics bay
+  WET ZONE    (left)    — water reservoir + atomizer mount
+  CENTER ZONE (center)  — two levels: pumps (bottom) + electronics tray (top)
+  OIL ZONE    (right)   — 5 bottle wells only (narrow, spill-isolated)
 
 Top shell layout (three zones, matching base dividers):
   MIST+FILL  (left)   — mist chimney + chevron exhaust + water fill chute
-  TRANSIT    (center) — structural / cable routing gap above pump row
+  TRANSIT    (center) — structural / cable routing gap above center zone
   STORAGE    (right)  — compartment for accessories/spare bottles
 
 Power architecture: 5V single-rail (all loads are 5V)
@@ -79,13 +81,12 @@ FLOOR_H = 3.0
 
 # --- Zone dividers ---
 # Two divider walls run parallel to Y axis, creating three zones.
-# Wet zone: X < DIVIDER_WET_X
-# Pump row: DIVIDER_WET_X < X < DIVIDER_DRY_X (width = pump body + clearance)
-# Dry zone: X > DIVIDER_DRY_X (bottles + electronics)
-# V3.0: WX3 pumps oriented 35mm along X, need 39mm pump row (35 + 4mm clearance)
-DIVIDER_WET_X = -17      # left divider (wet/pump boundary)
-DIVIDER_DRY_X = 22       # right divider (pump/dry boundary)
-# Pump row width: 39mm — fits 35mm WX3 body (oriented lengthwise) + clearance
+# Wet zone: X < DIVIDER_WET_X — water reservoir + atomizer
+# Center zone: DIVIDER_WET_X < X < DIVIDER_DRY_X — two-level: pumps + electronics tray
+# Oil zone: X > DIVIDER_DRY_X — bottles only (narrow, spill-isolated)
+# V3.1: Center zone widened to ~70mm for two-level design (pumps bottom, tray top)
+DIVIDER_WET_X = -17      # left divider (wet/center boundary)
+DIVIDER_DRY_X = 55       # right divider (center/oil boundary) — moved right from 22
 
 # --- Water reservoir (wet zone) ---
 RESERVOIR_DEPTH = BASE_H - FLOOR_H - WALL
@@ -98,24 +99,24 @@ ATOMIZER_MOUNT_DIA = 26
 ATOMIZER_POS_X = -55         # well into wet zone (left side)
 ATOMIZER_POS_Y = 0           # centered front-to-back
 
-# --- Peristaltic pumps (5x JIHPUMP WX3 micro, in pump row) ---
+# --- Peristaltic pumps (5x JIHPUMP WX3 micro, in center zone lower level) ---
 # WX3: 23mm wide × 35mm long × 25mm tall, 3.7-6V, up to 10ml/min
-# Oriented with 35mm (length) along X (across pump row) and 23mm (width) along Y.
+# Oriented with 35mm (length) along X (across center zone) and 23mm (width) along Y.
 # At 26mm Y-spacing: 3mm clearance between 23mm bodies.
-# Pump row needs ~39mm in X (35mm body + 2mm clearance each side).
-PUMP_BODY_W = 35             # WX3 length oriented along X (across pump row)
+# Pumps sit in the center zone (lower level), centered in the 70mm-wide space.
+PUMP_BODY_W = 35             # WX3 length oriented along X (across center zone)
 PUMP_BODY_D = 23             # WX3 width oriented along Y (along the row)
 PUMP_BODY_H = 25             # WX3 height
 PUMP_COUNT = 5
 PUMP_SPACING = 26            # center-to-center along Y axis
-# Pumps sit centered between the two dividers
-PUMP_CENTER_X = (DIVIDER_WET_X + DIVIDER_DRY_X) / 2
+# Pumps centered in center zone
+PUMP_CENTER_X = (DIVIDER_WET_X + DIVIDER_DRY_X) / 2  # ≈19
 
-# --- Oil bottles (5x, in dry zone) ---
+# --- Oil bottles (5x, in oil zone — narrow right zone) ---
 # 15ml essential oil bottles (industry standard): body ~22mm dia, cap ~18mm dia
 # Total height ~55mm with cap (fits in 67mm usable height).
 # NOTE: 50ml bottles (33mm × 95mm) are too tall for the 70mm base.
-# Parametric — change BOTTLE_DIA/HEIGHT to accommodate other sizes.
+# Oil zone is narrow (~33mm) — dedicated to bottles only, spill-isolated.
 BOTTLE_DIA = 22              # 15ml bottle body diameter
 BOTTLE_CAP_DIA = 18          # dropper/screw cap diameter (narrower than body)
 BOTTLE_HEIGHT = 55           # total height with cap (must fit in base)
@@ -123,8 +124,8 @@ BOTTLE_COUNT = 5
 BOTTLE_WELL_DEPTH = 6        # deeper ring for secure seating
 BOTTLE_WELL_DIA = BOTTLE_DIA + 2 * TOL + 2  # ~24.8mm
 BOTTLE_SPACING = 26          # center-to-center along Y axis
-# Bottles sit in the dry zone, centered front-to-back
-BOTTLE_ROW_X = DIVIDER_DRY_X + WALL_INNER / 2 + BOTTLE_WELL_DIA / 2 + 3
+# Bottles centered in the narrow oil zone
+BOTTLE_ROW_X = DIVIDER_DRY_X + WALL_INNER / 2 + BOTTLE_WELL_DIA / 2 + 2
 BOTTLE_ROW_Y_CENTER = 0
 
 # Bottle Y positions (row of 5)
@@ -135,28 +136,28 @@ bottle_y_positions = [-(BOTTLE_COUNT - 1) / 2 * BOTTLE_SPACING + i * BOTTLE_SPAC
 # Printed hinged clips that swing over the bottle neck to lock it in place.
 # Each clip pivots on a small pin at the base of the retaining wall and
 # snaps over the cap/neck area. The clip arm spans across the bottle top.
+# V3.1: Compact catch (2mm) for narrow oil zone clearance.
 CLIP_ARM_W = 4               # width of the clip arm
 CLIP_ARM_H = 3               # thickness of the clip arm
 CLIP_PIN_DIA = 2.0           # hinge pin diameter
 CLIP_PIN_H = 5               # hinge post height (above retainer ring)
-CLIP_CATCH_H = 8             # height of the catch hook on the opposite side
+CLIP_CATCH_H = 5             # height of the catch hook (reduced from 8mm)
 # Clip pivots on the "left" side of each well (toward divider),
 # swings over the bottle, and catches on the "right" side.
 
-# --- Tube clips (printed guide rings on the base floor) ---
-TUBE_CLIP_DIA = 6            # outer diameter of tube guide
-TUBE_CLIP_H = 5              # height of guide post
+# --- Tube clips (removed — tubes enter from screw-on bottle caps) ---
+TUBE_CLIP_DIA = 6            # outer diameter of tube guide (legacy)
+TUBE_CLIP_H = 5              # height of guide post (legacy)
 
-# --- Electronics bay (dry zone, RIGHT column beside bottles) ---
-# Bottles occupy X ≈ 24–53. Electronics go in a column at X ≈ 56–84.
-# All boards stacked along Y (front→rear) in that ~28mm-wide column.
-ESP32_W = 55                 # ESP32 DevKit V1 long dimension
-ESP32_D = 28                 # ESP32 DevKit V1 short dimension
+# --- Electronics (on lift-out tray in center zone upper level) ---
+# All boards sit on a removable tray above the pump level.
+# Tray is ~69mm X × ~135mm Y — two rows of boards side-by-side.
+ESP32_W = 55                 # ESP32 DevKit V1 long dimension (along Y on tray)
+ESP32_D = 28                 # ESP32 DevKit V1 short dimension (across X on tray)
 ESP32_H = 13
 # Single 8-channel MOSFET board replaces 6 individual 25×20mm modules.
-# Common "8CH 3.3V/5V logic-level MOSFET driver" from AliExpress/Amazon.
-MOSFET_BOARD_W = 50          # board long dimension (placed along Y)
-MOSFET_BOARD_D = 26          # board short dimension (across X, fits in 28mm col)
+MOSFET_BOARD_W = 50          # board long dimension (placed along Y on tray)
+MOSFET_BOARD_D = 26          # board short dimension (across X on tray)
 MOSFET_BOARD_H = 12
 MOSFET_COUNT = 6             # using 6 of 8 channels
 PD_TRIGGER_W = 24            # CH224K module (verified)
@@ -165,9 +166,27 @@ PD_TRIGGER_H = 8
 BUCK_CONV_W = 22             # MP1584EN buck converter (verified)
 BUCK_CONV_D = 17
 BUCK_CONV_H = 5
+ATOMIZER_DRIVER_H = 6        # driver board thickness
 BME280_W = 15
 BME280_D = 12
 BME280_H = 5
+
+# --- Electronics tray (lift-out shelf, center zone upper level) ---
+# The tray sits above pump pockets on support ledges. Lifts straight out.
+# Board layout on tray (two rows side-by-side in X):
+#   Row 1 (left):  ESP32 (28mm X × 55mm Y)
+#   Row 2 (right): MOSFET (26mm X × 50mm Y) + PD/Buck (24mm X × 18mm Y)
+#                   + Atomizer driver (25mm X × 35mm Y) + BME280 (12mm X × 15mm Y)
+TRAY_WALL = 2.0              # tray perimeter wall thickness
+TRAY_FLOOR = 2.0             # tray floor thickness
+TRAY_LEG_W = 5.0             # support leg width (square cross-section)
+TRAY_LEG_INSET = 8.0         # leg inset from tray edges
+TRAY_CLEARANCE = 0.5         # gap between tray and center zone walls
+TRAY_Z = FLOOR_H + PUMP_BODY_H + 4  # tray floor Z (pump top + 4mm clearance) = 32mm
+TRAY_H = 20                  # tray total height (floor + walls + board space)
+TRAY_TAB_W = 8.0             # registration tab width
+TRAY_TAB_D = 2.0             # registration tab depth (into wall slot)
+TRAY_TAB_H = 4.0             # registration tab height
 
 # --- PCB retention features ---
 # Rail slots (ESP32, MOSFET board, PD trigger) — board slides in from top
@@ -385,9 +404,11 @@ def hex_mesh_cutout(width, height, cell_size, wall_thickness, margin):
 # =============================================================================
 
 def build_base():
-    """Three-zone base: wet (left) | pumps (center) | dry+bottles (right).
+    """Three-zone base: wet (left) | center two-level (middle) | oil bottles (right).
 
-    Bottles sit upright in the dry zone. Top shell lifts off for full access.
+    Center zone lower level: 5 pumps.
+    Center zone upper level: lift-out electronics tray (separate part).
+    Oil zone: bottles only — narrow, spill-isolated from electronics.
     """
 
     # --- Outer tapered shell ---
@@ -515,9 +536,9 @@ def build_base():
         )
         base = base.cut(tube_in)
 
-    # --- DRY ZONE (right of DIVIDER_DRY_X) ---
-    # Front: 5 bottle wells in a row along Y
-    # Rear: electronics (ESP32, MOSFETs, PD trigger, BME280, atomizer driver)
+    # --- OIL ZONE (right of DIVIDER_DRY_X) — bottles only ---
+    # Narrow zone (~33mm) dedicated exclusively to 5 oil bottles.
+    # No electronics here — spill-isolated from all PCBs.
 
     # Bottle wells — deeper pockets with tall retaining walls + swing latch
     retainer_h = 18  # tall enough to grip ~1/3 of the bottle body
@@ -544,9 +565,6 @@ def build_base():
         base = base.union(retainer)
 
         # --- Swing latch (hinge + arm + catch) ---
-        # Hinge post on the left side (toward divider) of the retainer ring.
-        # The latch arm will be a separate printed piece that pivots on
-        # this pin and snaps into the catch hook on the opposite side.
         hinge_x = BOTTLE_ROW_X - BOTTLE_WELL_DIA / 2 - 2
         hinge_z = FLOOR_H + retainer_h
 
@@ -560,8 +578,7 @@ def build_base():
         )
         base = base.union(hinge_post)
 
-        # Catch hook on the right side (opposite the hinge)
-        # Small nub that the swing arm snaps behind when closed
+        # Catch hook on the right side (compact for narrow zone)
         catch_x = BOTTLE_ROW_X + BOTTLE_WELL_DIA / 2 + 2
         catch_post = (
             cq.Workplane("XY")
@@ -572,232 +589,104 @@ def build_base():
         )
         base = base.union(catch_post)
 
-        # Catch undercut notch (the arm hooks behind this)
+        # Catch undercut notch
         catch_notch = (
             cq.Workplane("XY")
-            .workplane(offset=hinge_z + CLIP_CATCH_H - 3)
+            .workplane(offset=hinge_z + CLIP_CATCH_H - 2)
             .center(catch_x - CLIP_ARM_W / 2, by)
             .rect(CLIP_ARM_W, CLIP_ARM_W + 1)
             .extrude(1.5)
         )
         base = base.cut(catch_notch)
 
-    # NOTE: Tube clip posts removed — tubes enter from screw-on caps at the
-    # top of each bottle, run down through the bottle well, and pass through
-    # the right divider's tube holes (at cap height Z≈57mm) to reach pumps.
-    # No floor-level guides needed.
-
-    # === ELECTRONICS COLUMN (right side of dry zone, X ≈ 55–90) ===
-    # 34.6mm-wide column to the right of bottles, stacked along Y.
-    # Compact layout: PD+Buck Z-stacked (front), MOSFET board (mid), ESP32 (rear).
-    # Atomizer driver relocated to wet zone (near atomizer).
-    # BME280 mounted on right divider wall (tiny sensor, doesn't need floor space).
-    dry_left = DIVIDER_DRY_X + WALL_INNER / 2
-    dry_right = MEETING_W / 2 - WALL
-    _bottle_right = BOTTLE_ROW_X + BOTTLE_WELL_DIA / 2 + 4  # bottle + retainer + catch
-    elec_col_x = (_bottle_right + dry_right) / 2
+    # === CENTER ZONE UPPER LEVEL — tray support ledges ===
+    # Continuous ledges on both divider walls at TRAY_Z height for the
+    # lift-out electronics tray to rest on. Tray sits on these ledges
+    # and is located by registration tab slots.
     interior_y_min = -(MEETING_D / 2 - WALL - 2)
     interior_y_max = (MEETING_D / 2 - WALL - 2)
-    y_cursor = interior_y_min  # start from front wall
+    _center_y_span = interior_y_max - interior_y_min
+    _tray_ledge_w = 4.0  # ledge protrusion from divider wall
+    _tray_ledge_h = 3.0  # ledge thickness (Z)
 
-    # PD trigger + Buck converter Z-STACKED (buck on floor, PD on top)
-    # Combined pocket: 24mm X (PD is wider) × 18mm Y (PD is deeper) × 15mm Z
-    _pd_buck_w = max(PD_TRIGGER_W, BUCK_CONV_W)   # 24mm
-    _pd_buck_d = max(PD_TRIGGER_D, BUCK_CONV_D)   # 18mm
-    _pd_buck_h = BUCK_CONV_H + PD_TRIGGER_H + 2   # 5+8+2 = 15mm
-    pd_buck_y = y_cursor + _pd_buck_d / 2
-    pd_buck_pocket = (
+    # Left divider ledge (wet side of center zone)
+    tray_ledge_left = (
         cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(elec_col_x, pd_buck_y)
-        .rect(_pd_buck_w + 2, _pd_buck_d + 2)
-        .extrude(_pd_buck_h)
+        .workplane(offset=TRAY_Z - _tray_ledge_h)
+        .center(DIVIDER_WET_X + WALL_INNER / 2 + _tray_ledge_w / 2, 0)
+        .rect(_tray_ledge_w, _center_y_span - 4)
+        .extrude(_tray_ledge_h)
     )
-    base = base.cut(pd_buck_pocket)
+    base = base.union(tray_ledge_left)
 
-    # Rail slots for PD trigger board (slides in from top)
-    _pdb_pocket_hw = (_pd_buck_w + 2) / 2  # half-width of pocket in X
-    for _rail_side in [-1, 1]:
-        rail = (
-            cq.Workplane("XY")
-            .workplane(offset=FLOOR_H + RAIL_LIFT)
-            .center(elec_col_x + _rail_side * (_pdb_pocket_hw - RAIL_GROOVE_D / 2),
-                    pd_buck_y)
-            .rect(RAIL_GROOVE_D, _pd_buck_d)
-            .extrude(_pd_buck_h - RAIL_LIFT)
-        )
-        base = base.union(rail)
-
-    # Snap tabs for buck converter (lower board in the Z-stack)
-    _buck_mid_z = FLOOR_H + BUCK_CONV_H / 2
-    for _snap_side in [-1, 1]:
-        snap = (
-            cq.Workplane("XY")
-            .workplane(offset=_buck_mid_z - SNAP_NUB_W / 2)
-            .center(elec_col_x + _snap_side * (_pdb_pocket_hw - SNAP_NUB_H / 2),
-                    pd_buck_y)
-            .rect(SNAP_NUB_H, SNAP_NUB_W)
-            .extrude(SNAP_NUB_W)
-        )
-        base = base.union(snap)
-
-    y_cursor += _pd_buck_d + 3
-
-    # 8-channel MOSFET board (50×26mm, long dim along Y, short dim across X)
-    mosfet_y = y_cursor + MOSFET_BOARD_W / 2  # 50mm along Y
-    mosfet_pocket = (
+    # Right divider ledge (oil side of center zone)
+    tray_ledge_right = (
         cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(elec_col_x, mosfet_y)
-        .rect(MOSFET_BOARD_D + 2, MOSFET_BOARD_W + 2)  # 28mm X, 52mm Y
-        .extrude(MOSFET_BOARD_H + 2)
+        .workplane(offset=TRAY_Z - _tray_ledge_h)
+        .center(DIVIDER_DRY_X - WALL_INNER / 2 - _tray_ledge_w / 2, 0)
+        .rect(_tray_ledge_w, _center_y_span - 4)
+        .extrude(_tray_ledge_h)
     )
-    base = base.cut(mosfet_pocket)
+    base = base.union(tray_ledge_right)
 
-    # Rail slots for MOSFET board (slides in from top)
-    _mos_pocket_hw = (MOSFET_BOARD_D + 2) / 2  # half-width in X
-    for _rail_side in [-1, 1]:
-        rail = (
+    # Registration tab slots in both divider walls (tray tabs slide into these)
+    # 4 slots total: 2 per divider wall, front and rear positions
+    _tab_y_positions = [interior_y_min + 20, interior_y_max - 20]
+    for tab_y in _tab_y_positions:
+        # Left divider tab slot
+        tab_slot_left = (
             cq.Workplane("XY")
-            .workplane(offset=FLOOR_H + RAIL_LIFT)
-            .center(elec_col_x + _rail_side * (_mos_pocket_hw - RAIL_GROOVE_D / 2),
-                    mosfet_y)
-            .rect(RAIL_GROOVE_D, MOSFET_BOARD_W)
-            .extrude(MOSFET_BOARD_H + 2 - RAIL_LIFT)
+            .workplane(offset=TRAY_Z - 1)
+            .center(DIVIDER_WET_X + WALL_INNER / 2 + TRAY_TAB_D / 2, tab_y)
+            .rect(TRAY_TAB_D + 0.5, TRAY_TAB_W + 0.5)
+            .extrude(TRAY_TAB_H + 1)
         )
-        base = base.union(rail)
+        base = base.cut(tab_slot_left)
 
-    y_cursor += MOSFET_BOARD_W + 3
-
-    # ESP32 DevKit (55×28mm, long dim along Y, short dim across X)
-    esp32_y = y_cursor + ESP32_W / 2  # 55mm along Y
-    esp32_pocket = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(elec_col_x, esp32_y)
-        .rect(ESP32_D + 2, ESP32_W + 2)  # 30mm X, 57mm Y
-        .extrude(ESP32_H + 2)
-    )
-    base = base.cut(esp32_pocket)
-
-    # Rail slots for ESP32 (slides in from top)
-    _esp_pocket_hw = (ESP32_D + 2) / 2  # half-width in X
-    for _rail_side in [-1, 1]:
-        rail = (
+        # Right divider tab slot
+        tab_slot_right = (
             cq.Workplane("XY")
-            .workplane(offset=FLOOR_H + RAIL_LIFT)
-            .center(elec_col_x + _rail_side * (_esp_pocket_hw - RAIL_GROOVE_D / 2),
-                    esp32_y)
-            .rect(RAIL_GROOVE_D, ESP32_W)
-            .extrude(ESP32_H + 2 - RAIL_LIFT)
+            .workplane(offset=TRAY_Z - 1)
+            .center(DIVIDER_DRY_X - WALL_INNER / 2 - TRAY_TAB_D / 2, tab_y)
+            .rect(TRAY_TAB_D + 0.5, TRAY_TAB_W + 0.5)
+            .extrude(TRAY_TAB_H + 1)
         )
-        base = base.union(rail)
+        base = base.cut(tab_slot_right)
 
-    # BME280 sensor — sits on top of MOSFET board (Z-stacked in electronics column).
-    # Tiny board (15×12×5mm) rests above the MOSFET (Z=FLOOR_H+MOSFET_BOARD_H+2).
-    # No separate pocket needed — it just sits on the MOSFET board surface.
-
-    # Atomizer driver — Z-stacked on top of ESP32 in the electronics column.
-    # Driver board (35×25mm) oriented 25mm along X, 35mm along Y.
-    # ESP32 top is at Z=FLOOR_H+ESP32_H+0.5≈16.5mm. Driver sits at Z≈18mm.
-    # Wire runs from driver → through right divider → through left divider
-    # → down to atomizer piezo in the wet zone floor.
-    _atm_drv_z = FLOOR_H + 0.5 + ESP32_H + 2  # on top of ESP32 with 2mm gap
-
-    # --- USB-C port cutout (rear wall, aligned with electronics column) ---
+    # --- USB-C port cutout (rear wall of center zone, for tray electronics) ---
+    _center_x = PUMP_CENTER_X
     usbc_cutout = (
         cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + ESP32_H / 2)
-        .center(elec_col_x, BASE_D / 2)
+        .workplane(offset=TRAY_Z + TRAY_FLOOR + 3)
+        .center(_center_x, BASE_D / 2)
         .rect(USBC_PORT_W, WALL + 2)
         .extrude(USBC_PORT_H)
     )
     base = base.cut(usbc_cutout)
 
-    # === WIRE CHANNEL NETWORK (3mm × 3mm open-top floor grooves) ===
+    # === WIRE CHANNEL NETWORK (base floor only) ===
+    # V3.1: Most wiring is on the electronics tray. Base floor channels are
+    # simplified to just the atomizer spur (tray → wet zone).
 
-    # Power trunk: runs along electronics column (X=elec_col_x) from
-    # USB-C port (rear wall) all the way to PD+Buck pocket (front).
-    _power_trunk_y_start = pd_buck_y - _pd_buck_d / 2 - 2
-    _power_trunk_y_end = interior_y_max
-    _power_trunk_len = _power_trunk_y_end - _power_trunk_y_start
-    power_trunk = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W, _power_trunk_len, CHANNEL_D)
-        .translate((elec_col_x, (_power_trunk_y_start + _power_trunk_y_end) / 2,
-                     FLOOR_H + CHANNEL_D / 2))
-    )
-    base = base.cut(power_trunk)
+    # Atomizer spur: center zone floor → left divider → wet zone → atomizer
+    # Wire drops from tray through a hole, runs along center zone front wall,
+    # crosses left divider, traverses wet zone floor to atomizer.
+    _atm_spur_y = interior_y_min + 3  # 3mm from front wall
 
-    # Signal trunk: short channel bridging the gap between MOSFET and ESP32.
-    _sig_y_start = mosfet_y + MOSFET_BOARD_W / 2
-    _sig_y_end = esp32_y - ESP32_W / 2
-    _sig_len = max(_sig_y_end - _sig_y_start, 1)
-    signal_trunk = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W, _sig_len + 4, CHANNEL_D)
-        .translate((elec_col_x, (_sig_y_start + _sig_y_end) / 2,
-                     FLOOR_H + CHANNEL_D / 2))
-    )
-    base = base.cut(signal_trunk)
-
-    # Pump power spurs: MOSFET pocket → right divider, one per pump Y position.
-    _spur_x_start = DIVIDER_DRY_X + WALL_INNER / 2 + 1
-    _spur_x_end = elec_col_x - MOSFET_BOARD_D / 2 - 1
-    _spur_len = _spur_x_end - _spur_x_start
-    for py in pump_y_positions:
-        pump_spur = (
-            cq.Workplane("XY")
-            .box(_spur_len, CHANNEL_W, CHANNEL_D)
-            .translate(((_spur_x_start + _spur_x_end) / 2, py,
-                         FLOOR_H + CHANNEL_D / 2))
-        )
-        base = base.cut(pump_spur)
-
-    # Collector channel: runs along Y at the MOSFET pocket's left edge,
-    # connecting all 5 pump spur endpoints to the MOSFET pocket.
-    _collector_x = _spur_x_end + CHANNEL_W / 2
-    _collector_y_start = pump_y_positions[0]
-    _collector_y_end = pump_y_positions[-1]
-    _collector_len = _collector_y_end - _collector_y_start + CHANNEL_W
-    collector = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W, _collector_len, CHANNEL_D)
-        .translate((_collector_x, (_collector_y_start + _collector_y_end) / 2,
-                     FLOOR_H + CHANNEL_D / 2))
-    )
-    base = base.cut(collector)
-
-    # Atomizer spur: electronics column → right divider → pump row → left divider
-    # The atomizer driver is now Z-stacked on the ESP32 in the dry zone.
-    # Wire runs from the driver → through the pump spur corridor (front wall)
-    # → across pump row → through left divider → down to atomizer piezo.
-    _atm_spur_y = interior_y_min + 3  # 3mm from front wall, clear of pump_0
-
-    # Segment 1: dry zone floor, from collector to right divider
-    _atm_seg1_x_start = DIVIDER_DRY_X + WALL_INNER / 2 + 1
-    _atm_seg1_x_end = _collector_x
+    # Segment 1: center zone floor, along front wall
+    _atm_seg1_x_start = DIVIDER_WET_X + WALL_INNER / 2 + 1
+    _atm_seg1_x_end = PUMP_CENTER_X
     atm_seg1 = (
         cq.Workplane("XY")
-        .box(_atm_seg1_x_end - _atm_seg1_x_start, CHANNEL_W, CHANNEL_D)
+        .box(abs(_atm_seg1_x_end - _atm_seg1_x_start), CHANNEL_W, CHANNEL_D)
         .translate(((_atm_seg1_x_start + _atm_seg1_x_end) / 2, _atm_spur_y,
                      FLOOR_H + CHANNEL_D / 2))
     )
     base = base.cut(atm_seg1)
 
-    # Segment 1b: Y-direction connector from MOSFET front edge down to _atm_spur_y
-    _atm_seg1b_y_end = mosfet_y - MOSFET_BOARD_W / 2
-    atm_seg1b = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W, abs(_atm_seg1b_y_end - _atm_spur_y), CHANNEL_D)
-        .translate((_collector_x, (_atm_spur_y + _atm_seg1b_y_end) / 2,
-                     FLOOR_H + CHANNEL_D / 2))
-    )
-    base = base.cut(atm_seg1b)
-
-    # Segment 2: across pump row floor (right divider → left divider)
-    _atm_seg2_x_start = DIVIDER_WET_X - WALL_INNER / 2 - 1
-    _atm_seg2_x_end = DIVIDER_DRY_X - WALL_INNER / 2 + 1
+    # Segment 2: wet zone, from left divider to atomizer X position
+    _atm_seg2_x_start = ATOMIZER_POS_X
+    _atm_seg2_x_end = DIVIDER_WET_X - WALL_INNER / 2 - 1
     atm_seg2 = (
         cq.Workplane("XY")
         .box(abs(_atm_seg2_x_end - _atm_seg2_x_start), CHANNEL_W, CHANNEL_D)
@@ -806,62 +695,18 @@ def build_base():
     )
     base = base.cut(atm_seg2)
 
-    # Segment 3: wet zone, from left divider to atomizer mount area
-    # Short L-shaped channel: along front wall then to atomizer X position
-    _atm_seg3_x_start = ATOMIZER_POS_X
-    _atm_seg3_x_end = DIVIDER_WET_X - WALL_INNER / 2 - 1
+    # Segment 3: turn from front wall toward atomizer center
     atm_seg3 = (
-        cq.Workplane("XY")
-        .box(abs(_atm_seg3_x_end - _atm_seg3_x_start), CHANNEL_W, CHANNEL_D)
-        .translate(((_atm_seg3_x_start + _atm_seg3_x_end) / 2, _atm_spur_y,
-                     FLOOR_H + CHANNEL_D / 2))
-    )
-    base = base.cut(atm_seg3)
-
-    # Segment 3b: turn from front wall toward atomizer center
-    atm_seg3b = (
         cq.Workplane("XY")
         .box(CHANNEL_W, abs(ATOMIZER_POS_Y - _atm_spur_y), CHANNEL_D)
         .translate((ATOMIZER_POS_X, (_atm_spur_y + ATOMIZER_POS_Y) / 2,
                      FLOOR_H + CHANNEL_D / 2))
     )
-    base = base.cut(atm_seg3b)
-
-    # LED spur: ESP32 pocket rear edge → rear wall (LED strip entry)
-    _led_spur_y_start = esp32_y + ESP32_W / 2
-    _led_spur_y_end = interior_y_max - 2
-    led_spur = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W, _led_spur_y_end - _led_spur_y_start, CHANNEL_D)
-        .translate((elec_col_x, (_led_spur_y_start + _led_spur_y_end) / 2,
-                     FLOOR_H + CHANNEL_D / 2))
-    )
-    base = base.cut(led_spur)
+    base = base.cut(atm_seg3)
 
     # === CROSS-DIVIDER WIRE PORTS ===
 
-    # Right divider: 5 pump wire ports (one per pump Y position)
-    for py in pump_y_positions:
-        pump_wire_port = (
-            cq.Workplane("XY")
-            .workplane(offset=WIRE_PORT_Z)
-            .center(DIVIDER_DRY_X, py)
-            .rect(WALL_INNER + 2, WIRE_PORT_W)
-            .extrude(WIRE_PORT_H)
-        )
-        base = base.cut(pump_wire_port)
-
-    # Right divider: atomizer spur port (front)
-    atm_port_right = (
-        cq.Workplane("XY")
-        .workplane(offset=WIRE_PORT_Z)
-        .center(DIVIDER_DRY_X, _atm_spur_y)
-        .rect(WALL_INNER + 2, WIRE_PORT_W)
-        .extrude(WIRE_PORT_H)
-    )
-    base = base.cut(atm_port_right)
-
-    # Left divider: atomizer spur port (matching)
+    # Left divider: atomizer spur port (front of center zone)
     atm_port_left = (
         cq.Workplane("XY")
         .workplane(offset=WIRE_PORT_Z)
@@ -871,37 +716,16 @@ def build_base():
     )
     base = base.cut(atm_port_left)
 
-    # === POCKET WALL NOTCHES (where wire channels enter pockets) ===
-
-    # PD+Buck pocket — notch on +Y wall (facing power trunk)
-    pd_notch = (
+    # Left divider: tray wire pass-through (upper level, for tray cable harness)
+    tray_wire_port = (
         cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(elec_col_x, pd_buck_y + _pd_buck_d / 2 + 0.5)
-        .rect(CHANNEL_NOTCH_W, 2)
-        .extrude(CHANNEL_NOTCH_H)
+        .workplane(offset=TRAY_Z + TRAY_FLOOR)
+        .center(DIVIDER_WET_X, 0)
+        .rect(WALL_INNER + 2, 8)
+        .extrude(6)
     )
-    base = base.cut(pd_notch)
+    base = base.cut(tray_wire_port)
 
-    # MOSFET pocket — notch on −X wall (facing pump spurs)
-    mos_notch_left = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(elec_col_x - MOSFET_BOARD_D / 2 - 0.5, mosfet_y)
-        .rect(2, CHANNEL_NOTCH_W)
-        .extrude(CHANNEL_NOTCH_H)
-    )
-    base = base.cut(mos_notch_left)
-
-    # ESP32 pocket — notch on +Y wall (LED spur exit)
-    esp_notch_rear = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(elec_col_x, esp32_y + ESP32_W / 2 + 0.5)
-        .rect(CHANNEL_NOTCH_W, 2)
-        .extrude(CHANNEL_NOTCH_H)
-    )
-    base = base.cut(esp_notch_rear)
 
     # --- Rubber feet ---
     foot_coords = [
@@ -1121,6 +945,273 @@ def build_base():
         base = base.cut(brand_recess)
 
     return base
+
+
+# =============================================================================
+# BUILD ELECTRONICS TRAY (lift-out shelf for center zone upper level)
+# =============================================================================
+
+def build_electronics_tray():
+    """Removable tray that sits above pumps in the center zone.
+
+    Lifts straight out for pump access. Has legs that rest on the
+    divider wall ledges and registration tabs for alignment.
+
+    Board layout (two rows side-by-side in X):
+      Left row:  ESP32 (28mm X × 55mm Y)
+      Right row: MOSFET (26mm X × 50mm Y), PD+Buck (24mm × 18mm),
+                 Atomizer driver (25mm × 35mm), BME280 (12mm × 15mm)
+    """
+
+    # Tray outer dimensions (fits inside center zone with clearance)
+    _center_inner_left = DIVIDER_WET_X + WALL_INNER / 2 + TRAY_CLEARANCE
+    _center_inner_right = DIVIDER_DRY_X - WALL_INNER / 2 - TRAY_CLEARANCE
+    tray_w = _center_inner_right - _center_inner_left  # ~68mm
+    interior_y_min = -(MEETING_D / 2 - WALL - 2)
+    interior_y_max = (MEETING_D / 2 - WALL - 2)
+    tray_d = (interior_y_max - interior_y_min) - 2 * TRAY_CLEARANCE  # ~134mm
+    tray_cx = (_center_inner_left + _center_inner_right) / 2
+    tray_cy = 0  # centered
+
+    # Tray base plate (floor + perimeter walls)
+    tray = (
+        cq.Workplane("XY")
+        .box(tray_w, tray_d, TRAY_FLOOR)
+        .translate((tray_cx, tray_cy, TRAY_Z + TRAY_FLOOR / 2))
+    )
+
+    # Perimeter walls
+    _wall_inner_w = tray_w - 2 * TRAY_WALL
+    _wall_inner_d = tray_d - 2 * TRAY_WALL
+    _wall_h = TRAY_H - TRAY_FLOOR
+    perimeter_outer = (
+        cq.Workplane("XY")
+        .box(tray_w, tray_d, _wall_h)
+        .translate((tray_cx, tray_cy, TRAY_Z + TRAY_FLOOR + _wall_h / 2))
+    )
+    perimeter_inner = (
+        cq.Workplane("XY")
+        .box(_wall_inner_w, _wall_inner_d, _wall_h + 1)
+        .translate((tray_cx, tray_cy, TRAY_Z + TRAY_FLOOR + _wall_h / 2))
+    )
+    perimeter_walls = perimeter_outer.cut(perimeter_inner)
+    tray = tray.union(perimeter_walls)
+
+    # Support legs (4 corners, rest on divider ledges)
+    _leg_h = TRAY_Z - FLOOR_H - PUMP_BODY_H - 2  # gap from pump top to tray bottom
+    _leg_left_x = _center_inner_left + TRAY_LEG_INSET
+    _leg_right_x = _center_inner_right - TRAY_LEG_INSET
+    _leg_front_y = interior_y_min + TRAY_CLEARANCE + TRAY_LEG_INSET
+    _leg_rear_y = interior_y_max - TRAY_CLEARANCE - TRAY_LEG_INSET
+    leg_positions = [
+        (_leg_left_x, _leg_front_y),
+        (_leg_left_x, _leg_rear_y),
+        (_leg_right_x, _leg_front_y),
+        (_leg_right_x, _leg_rear_y),
+    ]
+    for lx, ly in leg_positions:
+        leg = (
+            cq.Workplane("XY")
+            .box(TRAY_LEG_W, TRAY_LEG_W, _leg_h)
+            .translate((lx, ly, TRAY_Z - _leg_h / 2))
+        )
+        tray = tray.union(leg)
+
+    # Registration tabs (protrude from tray sides into divider wall slots)
+    _tab_y_positions = [interior_y_min + 20, interior_y_max - 20]
+    for tab_y in _tab_y_positions:
+        # Left side tab
+        left_tab = (
+            cq.Workplane("XY")
+            .box(TRAY_TAB_D, TRAY_TAB_W, TRAY_TAB_H)
+            .translate((_center_inner_left - TRAY_TAB_D / 2, tab_y,
+                        TRAY_Z + TRAY_TAB_H / 2))
+        )
+        tray = tray.union(left_tab)
+
+        # Right side tab
+        right_tab = (
+            cq.Workplane("XY")
+            .box(TRAY_TAB_D, TRAY_TAB_W, TRAY_TAB_H)
+            .translate((_center_inner_right + TRAY_TAB_D / 2, tab_y,
+                        TRAY_Z + TRAY_TAB_H / 2))
+        )
+        tray = tray.union(right_tab)
+
+    # === BOARD POCKETS on tray floor ===
+    # All pockets are cut into the tray floor, boards drop in from the top.
+    # Y cursor starts from front of tray.
+    _tray_y_min = tray_cy - tray_d / 2 + TRAY_WALL + 2
+    _tray_y_max = tray_cy + tray_d / 2 - TRAY_WALL - 2
+
+    # Two columns: left (ESP32) and right (MOSFET + power + driver)
+    _gap = 3  # gap between columns
+    _left_col_w = ESP32_D + 2  # 30mm
+    _right_col_w = MOSFET_BOARD_D + 2  # 28mm
+    _total_col_w = _left_col_w + _gap + _right_col_w  # 61mm
+    _col_offset = (tray_w - _total_col_w) / 2  # centering offset
+    _left_col_x = tray_cx - tray_w / 2 + _col_offset + _left_col_w / 2
+    _right_col_x = _left_col_x + _left_col_w / 2 + _gap + _right_col_w / 2
+
+    # Left column: ESP32 pocket
+    _tray_floor_z = TRAY_Z + TRAY_FLOOR
+    y_cur = _tray_y_min
+    esp32_tray_y = y_cur + ESP32_W / 2
+    esp32_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z)
+        .center(_left_col_x, esp32_tray_y)
+        .rect(ESP32_D + 2, ESP32_W + 2)
+        .extrude(ESP32_H + 1)
+    )
+    tray = tray.cut(esp32_pocket)
+
+    # Rail slots for ESP32 on tray
+    _esp_hw = (ESP32_D + 2) / 2
+    for _rs in [-1, 1]:
+        rail = (
+            cq.Workplane("XY")
+            .workplane(offset=_tray_floor_z + RAIL_LIFT)
+            .center(_left_col_x + _rs * (_esp_hw - RAIL_GROOVE_D / 2),
+                    esp32_tray_y)
+            .rect(RAIL_GROOVE_D, ESP32_W)
+            .extrude(ESP32_H + 1 - RAIL_LIFT)
+        )
+        tray = tray.union(rail)
+
+    # Right column: MOSFET pocket
+    y_cur_r = _tray_y_min
+    mosfet_tray_y = y_cur_r + MOSFET_BOARD_W / 2
+    mosfet_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z)
+        .center(_right_col_x, mosfet_tray_y)
+        .rect(MOSFET_BOARD_D + 2, MOSFET_BOARD_W + 2)
+        .extrude(MOSFET_BOARD_H + 1)
+    )
+    tray = tray.cut(mosfet_pocket)
+
+    # Rail slots for MOSFET on tray
+    _mos_hw = (MOSFET_BOARD_D + 2) / 2
+    for _rs in [-1, 1]:
+        rail = (
+            cq.Workplane("XY")
+            .workplane(offset=_tray_floor_z + RAIL_LIFT)
+            .center(_right_col_x + _rs * (_mos_hw - RAIL_GROOVE_D / 2),
+                    mosfet_tray_y)
+            .rect(RAIL_GROOVE_D, MOSFET_BOARD_W)
+            .extrude(MOSFET_BOARD_H + 1 - RAIL_LIFT)
+        )
+        tray = tray.union(rail)
+
+    y_cur_r += MOSFET_BOARD_W + 3
+
+    # Right column: PD trigger + Buck converter Z-stacked pocket
+    _pd_buck_w = max(PD_TRIGGER_W, BUCK_CONV_W)
+    _pd_buck_d = max(PD_TRIGGER_D, BUCK_CONV_D)
+    _pd_buck_h = BUCK_CONV_H + PD_TRIGGER_H + 2
+    pd_buck_tray_y = y_cur_r + _pd_buck_d / 2
+    pd_buck_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z)
+        .center(_right_col_x, pd_buck_tray_y)
+        .rect(_pd_buck_w + 2, _pd_buck_d + 2)
+        .extrude(_pd_buck_h)
+    )
+    tray = tray.cut(pd_buck_pocket)
+
+    # Snap tabs for buck converter
+    _pdb_hw = (_pd_buck_w + 2) / 2
+    _buck_mid_z = _tray_floor_z + BUCK_CONV_H / 2
+    for _ss in [-1, 1]:
+        snap = (
+            cq.Workplane("XY")
+            .workplane(offset=_buck_mid_z - SNAP_NUB_W / 2)
+            .center(_right_col_x + _ss * (_pdb_hw - SNAP_NUB_H / 2),
+                    pd_buck_tray_y)
+            .rect(SNAP_NUB_H, SNAP_NUB_W)
+            .extrude(SNAP_NUB_W)
+        )
+        tray = tray.union(snap)
+
+    y_cur_r += _pd_buck_d + 3
+
+    # Right column: Atomizer driver pocket
+    atm_drv_tray_y = y_cur_r + ATOMIZER_DRIVER_W / 2  # 35mm along Y
+    atm_drv_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z)
+        .center(_right_col_x, atm_drv_tray_y)
+        .rect(ATOMIZER_DRIVER_D + 2, ATOMIZER_DRIVER_W + 2)  # 27mm X, 37mm Y
+        .extrude(ATOMIZER_DRIVER_H + 1)
+    )
+    tray = tray.cut(atm_drv_pocket)
+
+    # Snap tabs for atomizer driver
+    _atm_hw = (ATOMIZER_DRIVER_D + 2) / 2
+    _atm_mid_z = _tray_floor_z + ATOMIZER_DRIVER_H / 2
+    for _ss in [-1, 1]:
+        snap = (
+            cq.Workplane("XY")
+            .workplane(offset=_atm_mid_z - SNAP_NUB_W / 2)
+            .center(_right_col_x + _ss * (_atm_hw - SNAP_NUB_H / 2),
+                    atm_drv_tray_y)
+            .rect(SNAP_NUB_H, SNAP_NUB_W)
+            .extrude(SNAP_NUB_W)
+        )
+        tray = tray.union(snap)
+
+    y_cur_r += ATOMIZER_DRIVER_W + 3
+
+    # Right column: BME280 pocket (tiny sensor)
+    bme_tray_y = y_cur_r + BME280_D / 2
+    bme_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z)
+        .center(_right_col_x, bme_tray_y)
+        .rect(BME280_W + 2, BME280_D + 2)
+        .extrude(BME280_H + 1)
+    )
+    tray = tray.cut(bme_pocket)
+
+    # === Tray wire channels (open-top grooves on tray floor) ===
+    # Simple routing: all boards connected by short channels on the tray.
+    # Power: PD/Buck → MOSFET → ESP32 (vertical along right column)
+    # Signal: ESP32 → MOSFET (vertical between columns)
+    # Atomizer: driver pocket → tray edge (wire drops to base floor)
+    _tch_z = _tray_floor_z + CHANNEL_D / 2
+
+    # Power bus along right column
+    _pwr_y_start = pd_buck_tray_y
+    _pwr_y_end = mosfet_tray_y
+    pwr_bus = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W, abs(_pwr_y_end - _pwr_y_start), CHANNEL_D)
+        .translate((_right_col_x + MOSFET_BOARD_D / 2 + 2, (_pwr_y_start + _pwr_y_end) / 2, _tch_z))
+    )
+    tray = tray.cut(pwr_bus)
+
+    # Signal bus: ESP32 → MOSFET (horizontal bridge)
+    _sig_y_mid = (esp32_tray_y + mosfet_tray_y) / 2
+    sig_bridge = (
+        cq.Workplane("XY")
+        .box(abs(_right_col_x - _left_col_x), CHANNEL_W, CHANNEL_D)
+        .translate(((_left_col_x + _right_col_x) / 2, _sig_y_mid, _tch_z))
+    )
+    tray = tray.cut(sig_bridge)
+
+    # Wire drop hole: atomizer wire drops from tray to base floor
+    _drop_hole_y = _tray_y_min + 3  # near front wall
+    wire_drop = (
+        cq.Workplane("XY")
+        .workplane(offset=TRAY_Z)
+        .center(tray_cx - tray_w / 4, _drop_hole_y)
+        .rect(5, 5)
+        .extrude(TRAY_FLOOR + 1)
+    )
+    tray = tray.cut(wire_drop)
+
+    return tray
 
 
 # =============================================================================
@@ -1428,39 +1519,59 @@ def build_top_shell():
 # mechanical components placed in their pockets so you can verify clearance.
 # Each is rendered with a distinct color to identify it in the viewer.
 
+# =============================================================================
+# FITMENT COMPONENTS — simplified solid models for visual fit check
+# =============================================================================
+# These are NOT 3D-printed parts. They represent the real electronic and
+# mechanical components placed in their pockets so you can verify clearance.
+# Each is rendered with a distinct color to identify it in the viewer.
+
 def build_components():
     """Build simplified solid models of all internal components at their
     installed positions. Returns a dict of {name: (solid, color)}.
 
-    Layout matches build_base() pockets:
-      Electronics column (X≈72, ~35mm wide):
-        Front: PD trigger + buck converter Z-stacked
-        Mid:   8-channel MOSFET board (50mm along Y)
-        Rear:  ESP32 DevKit (55mm along Y)
-      Relocated:
-        Atomizer driver → wet zone floor (behind atomizer)
-        BME280 → right divider wall (mid-height)
+    V3.1 Layout:
+      Wet zone: atomizer piezo disk, water
+      Center zone (lower): 5× pumps
+      Center zone (upper / tray): ESP32, MOSFET, PD+Buck, atomizer driver, BME280
+      Oil zone: 5× bottles
     """
 
     parts = {}
 
-    # --- Recompute layout positions (must match build_base exactly) ---
-    dry_right = MEETING_W / 2 - WALL
-    _bottle_right = BOTTLE_ROW_X + BOTTLE_WELL_DIA / 2 + 4
-    elec_col_x = (_bottle_right + dry_right) / 2
+    # --- Recompute tray board positions (must match build_electronics_tray) ---
+    _center_inner_left = DIVIDER_WET_X + WALL_INNER / 2 + TRAY_CLEARANCE
+    _center_inner_right = DIVIDER_DRY_X - WALL_INNER / 2 - TRAY_CLEARANCE
+    tray_w = _center_inner_right - _center_inner_left
+    tray_cx = (_center_inner_left + _center_inner_right) / 2
     interior_y_min = -(MEETING_D / 2 - WALL - 2)
+    interior_y_max = (MEETING_D / 2 - WALL - 2)
+    tray_d = (interior_y_max - interior_y_min) - 2 * TRAY_CLEARANCE
+    _tray_y_min = -tray_d / 2 + TRAY_WALL + 2
+    _tray_floor_z = TRAY_Z + TRAY_FLOOR
 
-    # Y-cursor positions (same math as build_base)
-    _pd_buck_d = max(PD_TRIGGER_D, BUCK_CONV_D)  # 18mm
-    y_cursor = interior_y_min
-    pd_buck_y = y_cursor + _pd_buck_d / 2
-    y_cursor += _pd_buck_d + 3
-    mosfet_y = y_cursor + MOSFET_BOARD_W / 2
-    y_cursor += MOSFET_BOARD_W + 3
-    esp32_y = y_cursor + ESP32_W / 2
+    # Two columns on tray
+    _gap = 3
+    _left_col_w = ESP32_D + 2
+    _right_col_w = MOSFET_BOARD_D + 2
+    _total_col_w = _left_col_w + _gap + _right_col_w
+    _col_offset = (tray_w - _total_col_w) / 2
+    _left_col_x = tray_cx - tray_w / 2 + _col_offset + _left_col_w / 2
+    _right_col_x = _left_col_x + _left_col_w / 2 + _gap + _right_col_w / 2
 
-    # Atomizer driver position (Z-stacked on ESP32 in electronics column)
-    _atm_drv_z = FLOOR_H + 0.5 + ESP32_H + 2  # on top of ESP32
+    # Left column Y positions
+    esp32_tray_y = _tray_y_min + ESP32_W / 2
+
+    # Right column Y positions
+    _pd_buck_d = max(PD_TRIGGER_D, BUCK_CONV_D)
+    y_cur_r = _tray_y_min
+    mosfet_tray_y = y_cur_r + MOSFET_BOARD_W / 2
+    y_cur_r += MOSFET_BOARD_W + 3
+    pd_buck_tray_y = y_cur_r + _pd_buck_d / 2
+    y_cur_r += _pd_buck_d + 3
+    atm_drv_tray_y = y_cur_r + ATOMIZER_DRIVER_W / 2
+    y_cur_r += ATOMIZER_DRIVER_W + 3
+    bme_tray_y = y_cur_r + BME280_D / 2
 
     # =============================================
     # WET ZONE components
@@ -1476,16 +1587,6 @@ def build_components():
     )
     parts["atomizer_disk"] = (atomizer_disk, (0.75, 0.75, 0.15, 0.95))  # gold
 
-    # Atomizer driver board (25mm X × 35mm Y, Z-stacked on top of ESP32)
-    atomizer_driver = (
-        cq.Workplane("XY")
-        .workplane(offset=_atm_drv_z)
-        .center(elec_col_x, esp32_y)
-        .rect(ATOMIZER_DRIVER_D, ATOMIZER_DRIVER_W)  # 25mm X, 35mm Y (rotated)
-        .extrude(6)
-    )
-    parts["atomizer_driver"] = (atomizer_driver, (0.2, 0.6, 0.2, 0.95))  # green PCB
-
     # Water (simplified as a transparent blue block filling wet zone)
     water_level = 40
     _wet_left_x = -(MEETING_W / 2 - WALL)
@@ -1499,7 +1600,7 @@ def build_components():
     parts["water"] = (water, (0.15, 0.4, 0.85, 0.25))  # translucent blue
 
     # =============================================
-    # PUMP ROW components
+    # CENTER ZONE — Lower level (pumps)
     # =============================================
 
     # 5× WX3 micro peristaltic pumps
@@ -1514,7 +1615,71 @@ def build_components():
         parts[f"pump_{i}"] = (pump, (0.85, 0.45, 0.1, 0.9))  # orange
 
     # =============================================
-    # DRY ZONE — Bottles
+    # CENTER ZONE — Upper level (tray electronics)
+    # =============================================
+
+    # ESP32 DevKit (28mm X × 55mm Y × 13mm Z) — left column
+    esp32 = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z + 0.5)
+        .center(_left_col_x, esp32_tray_y)
+        .rect(ESP32_D, ESP32_W)
+        .extrude(ESP32_H)
+    )
+    parts["esp32"] = (esp32, (0.1, 0.35, 0.7, 0.95))  # blue PCB
+
+    # 8-channel MOSFET board (26mm X × 50mm Y × 12mm Z) — right column
+    mosfet_board = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z + 0.5)
+        .center(_right_col_x, mosfet_tray_y)
+        .rect(MOSFET_BOARD_D, MOSFET_BOARD_W)
+        .extrude(MOSFET_BOARD_H)
+    )
+    parts["mosfet_board"] = (mosfet_board, (0.15, 0.55, 0.15, 0.9))  # green
+
+    # Buck converter (22×17mm, on tray floor, right column)
+    buck_conv = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z + 0.5)
+        .center(_right_col_x, pd_buck_tray_y)
+        .rect(BUCK_CONV_W, BUCK_CONV_D)
+        .extrude(BUCK_CONV_H)
+    )
+    parts["buck_converter"] = (buck_conv, (0.5, 0.1, 0.5, 0.95))  # purple PCB
+
+    # CH224K PD trigger (24×18mm, stacked on top of buck converter)
+    pd_trigger = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z + 0.5 + BUCK_CONV_H + 1)
+        .center(_right_col_x, pd_buck_tray_y)
+        .rect(PD_TRIGGER_W, PD_TRIGGER_D)
+        .extrude(PD_TRIGGER_H)
+    )
+    parts["pd_trigger"] = (pd_trigger, (0.7, 0.1, 0.1, 0.95))  # red PCB
+
+    # Atomizer driver board (25mm X × 35mm Y) — right column
+    atomizer_driver = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z + 0.5)
+        .center(_right_col_x, atm_drv_tray_y)
+        .rect(ATOMIZER_DRIVER_D, ATOMIZER_DRIVER_W)
+        .extrude(ATOMIZER_DRIVER_H)
+    )
+    parts["atomizer_driver"] = (atomizer_driver, (0.2, 0.6, 0.2, 0.95))  # green PCB
+
+    # BME280 sensor (15×12mm) — right column
+    bme280 = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z + 0.5)
+        .center(_right_col_x, bme_tray_y)
+        .rect(BME280_W, BME280_D)
+        .extrude(BME280_H)
+    )
+    parts["bme280"] = (bme280, (0.3, 0.3, 0.8, 0.95))  # light blue
+
+    # =============================================
+    # OIL ZONE — Bottles
     # =============================================
 
     # 5× 15ml essential oil bottles (cylinder body + smaller cap)
@@ -1544,61 +1709,6 @@ def build_components():
             (0.65, 0.45, 0.1, 0.8),    # golden
         ]
         parts[f"bottle_{i}"] = (bottle, colors[i % len(colors)])
-
-    # =============================================
-    # DRY ZONE — Electronics Column
-    # =============================================
-
-    # Buck converter (22×17mm, on floor, front of column)
-    buck_conv = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + 0.5)
-        .center(elec_col_x, pd_buck_y)
-        .rect(BUCK_CONV_W, BUCK_CONV_D)
-        .extrude(BUCK_CONV_H)
-    )
-    parts["buck_converter"] = (buck_conv, (0.5, 0.1, 0.5, 0.95))  # purple PCB
-
-    # CH224K PD trigger (24×18mm, stacked on top of buck converter)
-    pd_trigger = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + 0.5 + BUCK_CONV_H + 1)
-        .center(elec_col_x, pd_buck_y)
-        .rect(PD_TRIGGER_W, PD_TRIGGER_D)
-        .extrude(PD_TRIGGER_H)
-    )
-    parts["pd_trigger"] = (pd_trigger, (0.7, 0.1, 0.1, 0.95))  # red PCB
-
-    # 8-channel MOSFET board (26mm X × 50mm Y × 12mm Z)
-    mosfet_board = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + 0.5)
-        .center(elec_col_x, mosfet_y)
-        .rect(MOSFET_BOARD_D, MOSFET_BOARD_W)  # 26mm X, 50mm Y
-        .extrude(MOSFET_BOARD_H)
-    )
-    parts["mosfet_board"] = (mosfet_board, (0.15, 0.55, 0.15, 0.9))  # green
-
-    # ESP32 DevKit (28mm X × 55mm Y × 13mm Z)
-    esp32 = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + 0.5)
-        .center(elec_col_x, esp32_y)
-        .rect(ESP32_D, ESP32_W)  # 28mm X, 55mm Y
-        .extrude(ESP32_H)
-    )
-    parts["esp32"] = (esp32, (0.1, 0.35, 0.7, 0.95))  # blue PCB
-
-    # BME280 sensor (15×12mm, on top of MOSFET board, Z-stacked)
-    _bme_z = FLOOR_H + 0.5 + MOSFET_BOARD_H + 2  # sits above MOSFET board
-    bme280 = (
-        cq.Workplane("XY")
-        .workplane(offset=_bme_z)
-        .center(elec_col_x, mosfet_y)
-        .rect(BME280_W, BME280_D)
-        .extrude(BME280_H)
-    )
-    parts["bme280"] = (bme280, (0.3, 0.3, 0.8, 0.95))  # light blue
 
     # =============================================
     # LED strip (simplified as thin colored ring)
@@ -1636,132 +1746,44 @@ def build_components():
     parts["led_strip"] = (led_strip, (0.2, 1.0, 0.3, 0.8))  # bright green
 
     # =============================================
-    # WIRE CHANNEL VISUALIZATION (colored solids filling the grooves)
+    # WIRE CHANNEL VISUALIZATION (base floor only)
     # =============================================
-    # These are NOT physical parts — they show where wires run.
-    # Hot pink for power, yellow for signal, orange for pump spurs,
-    # magenta for atomizer spur, cyan for LED spur.
+    # Simplified for V3.1 — only atomizer spur on base floor.
+    # Tray wiring is visible from board arrangement on the tray.
 
-    _ch_z = FLOOR_H + CHANNEL_D / 2  # channel center Z
-
-    # --- Recompute channel positions (must match build_base) ---
-    _pd_buck_d_ch = max(PD_TRIGGER_D, BUCK_CONV_D)
-    _y_cur = -(MEETING_D / 2 - WALL - 2)  # interior_y_min
-    _interior_y_max = (MEETING_D / 2 - WALL - 2)
-    _pd_buck_y_ch = _y_cur + _pd_buck_d_ch / 2
-    _y_cur += _pd_buck_d_ch + 3
-    _mosfet_y_ch = _y_cur + MOSFET_BOARD_W / 2
-    _y_cur += MOSFET_BOARD_W + 3
-    _esp32_y_ch = _y_cur + ESP32_W / 2
-
-    _spur_x_start = DIVIDER_DRY_X + WALL_INNER / 2 + 1
-    _spur_x_end = elec_col_x - MOSFET_BOARD_D / 2 - 1
-    _collector_x = _spur_x_end + CHANNEL_W / 2
+    _ch_z = FLOOR_H + CHANNEL_D / 2
     _atm_spur_y = -(MEETING_D / 2 - WALL - 2) + 3
 
-    # Atomizer spur target is now the atomizer piezo itself (driver moved to dry zone)
-    _atm_target_x = ATOMIZER_POS_X
-    _atm_target_y = ATOMIZER_POS_Y
-
-    # Power trunk (hot pink) — full length along electronics column
-    _pt_y_start = _pd_buck_y_ch - _pd_buck_d_ch / 2 - 2
-    _pt_y_end = _interior_y_max
-    _pt_len = _pt_y_end - _pt_y_start
-    power_trunk_vis = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W - 0.5, _pt_len, CHANNEL_D - 0.5)
-        .translate((elec_col_x, (_pt_y_start + _pt_y_end) / 2, _ch_z))
-    )
-    parts["wire_power_trunk"] = (power_trunk_vis, (1.0, 0.2, 0.6, 0.9))  # hot pink
-
-    # Signal trunk (yellow) — short bridge between MOSFET and ESP32
-    _sig_y_s = _mosfet_y_ch + MOSFET_BOARD_W / 2
-    _sig_y_e = _esp32_y_ch - ESP32_W / 2
-    signal_trunk_vis = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W - 0.5, max(_sig_y_e - _sig_y_s, 1) + 4, CHANNEL_D - 0.5)
-        .translate((elec_col_x, (_sig_y_s + _sig_y_e) / 2, _ch_z))
-    )
-    parts["wire_signal_trunk"] = (signal_trunk_vis, (1.0, 0.95, 0.1, 0.9))  # yellow
-
-    # Pump spurs (orange) — 5 channels from collector to right divider
-    for i, py in enumerate(pump_y_positions):
-        spur_vis = (
-            cq.Workplane("XY")
-            .box(_spur_x_end - _spur_x_start, CHANNEL_W - 0.5, CHANNEL_D - 0.5)
-            .translate(((_spur_x_start + _spur_x_end) / 2, py, _ch_z))
-        )
-        parts[f"wire_pump_spur_{i}"] = (spur_vis, (1.0, 0.55, 0.1, 0.85))  # orange
-
-    # Collector channel (orange)
-    _col_y_s = pump_y_positions[0]
-    _col_y_e = pump_y_positions[-1]
-    collector_vis = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W - 0.5, _col_y_e - _col_y_s + CHANNEL_W, CHANNEL_D - 0.5)
-        .translate((_collector_x, (_col_y_s + _col_y_e) / 2, _ch_z))
-    )
-    parts["wire_collector"] = (collector_vis, (1.0, 0.55, 0.1, 0.85))  # orange
-
-    # Atomizer spur (magenta) — multi-segment route
-    # Segment 1: dry zone horizontal
-    _as1_xs = DIVIDER_DRY_X + WALL_INNER / 2 + 1
-    _as1_xe = _collector_x
+    # Atomizer spur segment 1: center zone floor (magenta)
+    _as1_xs = DIVIDER_WET_X + WALL_INNER / 2 + 1
+    _as1_xe = PUMP_CENTER_X
     atm_s1_vis = (
         cq.Workplane("XY")
-        .box(_as1_xe - _as1_xs, CHANNEL_W - 0.5, CHANNEL_D - 0.5)
+        .box(abs(_as1_xe - _as1_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
         .translate(((_as1_xs + _as1_xe) / 2, _atm_spur_y, _ch_z))
     )
-    parts["wire_atm_spur_1"] = (atm_s1_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
+    parts["wire_atm_spur_1"] = (atm_s1_vis, (0.85, 0.15, 0.85, 0.85))
 
-    # Segment 1b: vertical connector to MOSFET front
-    _as1b_ye = _mosfet_y_ch - MOSFET_BOARD_W / 2
-    atm_s1b_vis = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W - 0.5, abs(_as1b_ye - _atm_spur_y), CHANNEL_D - 0.5)
-        .translate((_collector_x, (_atm_spur_y + _as1b_ye) / 2, _ch_z))
-    )
-    parts["wire_atm_spur_1b"] = (atm_s1b_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
-
-    # Segment 2: across pump row
-    _as2_xs = DIVIDER_WET_X - WALL_INNER / 2 - 1
-    _as2_xe = DIVIDER_DRY_X - WALL_INNER / 2 + 1
+    # Atomizer spur segment 2: wet zone horizontal (magenta)
+    _as2_xs = ATOMIZER_POS_X
+    _as2_xe = DIVIDER_WET_X - WALL_INNER / 2 - 1
     atm_s2_vis = (
         cq.Workplane("XY")
         .box(abs(_as2_xe - _as2_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
         .translate(((_as2_xs + _as2_xe) / 2, _atm_spur_y, _ch_z))
     )
-    parts["wire_atm_spur_2"] = (atm_s2_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
+    parts["wire_atm_spur_2"] = (atm_s2_vis, (0.85, 0.15, 0.85, 0.85))
 
-    # Segment 3a: wet zone horizontal — left divider to atomizer X at _atm_spur_y
-    _as3a_xs = _atm_target_x
-    _as3a_xe = DIVIDER_WET_X - WALL_INNER / 2 - 1
-    atm_s3a_vis = (
+    # Atomizer spur segment 3: wet zone vertical turn to atomizer (magenta)
+    atm_s3_vis = (
         cq.Workplane("XY")
-        .box(abs(_as3a_xe - _as3a_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
-        .translate(((_as3a_xs + _as3a_xe) / 2, _atm_spur_y, _ch_z))
+        .box(CHANNEL_W - 0.5, abs(ATOMIZER_POS_Y - _atm_spur_y), CHANNEL_D - 0.5)
+        .translate((ATOMIZER_POS_X, (_atm_spur_y + ATOMIZER_POS_Y) / 2, _ch_z))
     )
-    parts["wire_atm_spur_3a"] = (atm_s3a_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
-
-    # Segment 3b: wet zone vertical — turn from _atm_spur_y to atomizer center
-    atm_s3b_vis = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W - 0.5, abs(_atm_target_y - _atm_spur_y), CHANNEL_D - 0.5)
-        .translate((_atm_target_x, (_atm_spur_y + _atm_target_y) / 2, _ch_z))
-    )
-    parts["wire_atm_spur_3b"] = (atm_s3b_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
-
-    # LED spur (cyan) — ESP32 to rear wall
-    _led_y_s = _esp32_y_ch + ESP32_W / 2
-    _led_y_e = _interior_y_max - 2
-    led_spur_vis = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W - 0.5, _led_y_e - _led_y_s, CHANNEL_D - 0.5)
-        .translate((elec_col_x, (_led_y_s + _led_y_e) / 2, _ch_z))
-    )
-    parts["wire_led_spur"] = (led_spur_vis, (0.1, 0.9, 0.95, 0.9))  # cyan
+    parts["wire_atm_spur_3"] = (atm_s3_vis, (0.85, 0.15, 0.85, 0.85))
 
     return parts
+
 
 
 # =============================================================================
@@ -1769,63 +1791,20 @@ def build_components():
 # =============================================================================
 #
 # Color legend:
-#   Base:  teal (wet zone), amber (pump row), purple (dry zone)
+#   Base:  teal (wet zone), amber (center zone), purple (oil zone)
+#   Tray:  silver (electronics tray)
 #   Top:   blue (mist+fill zone), teal (transit zone), orange (storage)
-#
-# We split each part into zone-colored sub-bodies by cutting with bounding boxes.
 
 base = build_base()
+electronics_tray = build_electronics_tray()
 top_shell = build_top_shell()
 top_shell = top_shell.translate((0, 0, BASE_H))
 
-# --- Zone splitter boxes (oversized, for boolean intersection) ---
-# Base zones — cut at Z=0..BASE_H
-_big_h = BASE_H + 20
-_big_d = BASE_D + 20
-
-# Wet zone: X from far-left to DIVIDER_WET_X
-base_wet_box = (
-    cq.Workplane("XY").box(BASE_W, _big_d, _big_h)
-    .translate((-(BASE_W / 2 + DIVIDER_WET_X) / 2 + DIVIDER_WET_X, 0, _big_h / 2 - 5))
-)
-# Pump row: X from DIVIDER_WET_X to DIVIDER_DRY_X
-pump_row_w = DIVIDER_DRY_X - DIVIDER_WET_X
-base_pump_box = (
-    cq.Workplane("XY").box(pump_row_w, _big_d, _big_h)
-    .translate(((DIVIDER_WET_X + DIVIDER_DRY_X) / 2, 0, _big_h / 2 - 5))
-)
-# Dry zone: X from DIVIDER_DRY_X to far-right
-base_dry_box = (
-    cq.Workplane("XY").box(BASE_W, _big_d, _big_h)
-    .translate(((BASE_W / 2 + DIVIDER_DRY_X) / 2 + DIVIDER_DRY_X, 0, _big_h / 2 - 5))
-)
-
-# Show the complete base in a neutral dark color, and overlay zone highlights
-# Using the full base for structural integrity view, zone colors for identification.
+# Show the three main parts
 show_object(base, name="base",
             options={"color": (0.12, 0.12, 0.15, 0.55)})
-
-# Top shell zones — offset by BASE_H
-_top_big_h = TOP_H + 20
-
-# Fill zone (left, above wet zone)
-top_fill_box = (
-    cq.Workplane("XY").box(BASE_W, _big_d, _top_big_h)
-    .translate((-(BASE_W / 2 + TOP_DIVIDER_WET_X) / 2 + TOP_DIVIDER_WET_X, 0,
-                BASE_H + _top_big_h / 2 - 5))
-)
-# Mist zone (center)
-top_mist_box = (
-    cq.Workplane("XY").box(pump_row_w, _big_d, _top_big_h)
-    .translate(((TOP_DIVIDER_WET_X + TOP_DIVIDER_DRY_X) / 2, 0,
-                BASE_H + _top_big_h / 2 - 5))
-)
-# Storage zone (right)
-top_stor_box = (
-    cq.Workplane("XY").box(BASE_W, _big_d, _top_big_h)
-    .translate(((BASE_W / 2 + TOP_DIVIDER_DRY_X) / 2 + TOP_DIVIDER_DRY_X, 0,
-                BASE_H + _top_big_h / 2 - 5))
-)
+show_object(electronics_tray, name="electronics_tray",
+            options={"color": (0.6, 0.6, 0.65, 0.7)})  # silver
 
 # Show top shell with distinct color
 show_object(top_shell, name="top_shell",
@@ -1845,25 +1824,25 @@ wet_marker = (
 show_object(wet_marker, name="zone_wet",
             options={"color": (0.08, 0.72, 0.65, 0.85)})  # teal
 
-# Base pump row marker (amber)
-pump_marker_w = DIVIDER_DRY_X - DIVIDER_WET_X - WALL_INNER
-pump_marker = (
+# Base center zone marker (amber)
+center_marker_w = DIVIDER_DRY_X - DIVIDER_WET_X - WALL_INNER
+center_marker = (
     cq.Workplane("XY")
-    .box(pump_marker_w - 2, MEETING_D - WALL * 2 - 8, marker_h)
+    .box(center_marker_w - 2, MEETING_D - WALL * 2 - 8, marker_h)
     .translate((PUMP_CENTER_X, 0, FLOOR_H + marker_h / 2))
 )
-show_object(pump_marker, name="zone_pumps",
+show_object(center_marker, name="zone_center",
             options={"color": (0.92, 0.69, 0.13, 0.85)})  # amber
 
-# Base dry zone marker (purple)
-dry_marker_w = abs((MEETING_W / 2 - WALL) - DIVIDER_DRY_X) - WALL_INNER / 2
-dry_marker = (
+# Base oil zone marker (purple)
+oil_marker_w = abs((MEETING_W / 2 - WALL) - DIVIDER_DRY_X) - WALL_INNER / 2
+oil_marker = (
     cq.Workplane("XY")
-    .box(dry_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
+    .box(oil_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
     .translate(((DIVIDER_DRY_X + MEETING_W / 2 - WALL) / 2 + WALL_INNER / 4, 0,
                 FLOOR_H + marker_h / 2))
 )
-show_object(dry_marker, name="zone_dry",
+show_object(oil_marker, name="zone_oil",
             options={"color": (0.58, 0.27, 0.88, 0.85)})  # purple
 
 # Top mist+fill zone marker (blue) — on the ceiling inside
@@ -1939,13 +1918,13 @@ for comp_name, (comp_solid, comp_color) in components.items():
 
 _wet_left = -(MEETING_W / 2 - WALL)
 _wet_right = DIVIDER_WET_X
-_pump_left = DIVIDER_WET_X
-_pump_right = DIVIDER_DRY_X
-_dry_left = DIVIDER_DRY_X + WALL_INNER / 2
-_dry_right = MEETING_W / 2 - WALL
+_center_left = DIVIDER_WET_X
+_center_right = DIVIDER_DRY_X
+_oil_left = DIVIDER_DRY_X + WALL_INNER / 2
+_oil_right = MEETING_W / 2 - WALL
 
 print("=" * 60)
-print("Somni Oil Diffuser V3.0 — Night City")
+print("Somni Oil Diffuser V3.1 — Night City")
 print("=" * 60)
 print()
 print("--- BOM (verified dimensions) ---")
@@ -1958,9 +1937,10 @@ print(f"Buck conv:   MP1584EN ({BUCK_CONV_W}x{BUCK_CONV_D}mm, 12V→5V)")
 print(f"Buttons:     {TOUCH_BTN_COUNT}x TTP223 capacitive ({TOUCH_BTN_W}x{TOUCH_BTN_D}mm)")
 print(f"LEDs:        WS2812B strip ({LED_CHANNEL_W}mm wide)")
 print()
-print("--- Enclosure ---")
+print("--- Enclosure (3 parts) ---")
 print(f"Base:        {BASE_W}x{BASE_D}x{BASE_H}mm (bottom)")
 print(f"             {MEETING_W:.1f}x{MEETING_D:.1f}mm (meeting line)")
+print(f"Elec tray:   lift-out shelf in center zone (Z={TRAY_Z}mm)")
 print(f"Top shell:   {TOP_W:.1f}x{TOP_D:.1f}mm (top)")
 print(f"Total:       {TOTAL_H}mm tall")
 print()
@@ -1969,65 +1949,42 @@ print(f"WET ZONE:    X={_wet_left:.1f} to {_wet_right}mm ({_wet_right - _wet_lef
 print(f"  Reservoir: depth={RESERVOIR_DEPTH:.1f}mm")
 print(f"  Atomizer:  {ATOMIZER_MOUNT_DIA}mm at ({ATOMIZER_POS_X}, {ATOMIZER_POS_Y})")
 print()
-print(f"PUMP ROW:    X={_pump_left} to {_pump_right}mm ({_pump_right - _pump_left}mm wide)  [AMBER]")
-print(f"  Pumps:     {PUMP_COUNT}x WX3 at Y={[f'{y:.0f}' for y in pump_y_positions]}")
-print(f"  Body:      {PUMP_BODY_W}x{PUMP_BODY_D}x{PUMP_BODY_H}mm each (oriented 35mm across row)")
+print(f"CENTER ZONE: X={_center_left} to {_center_right}mm ({_center_right - _center_left}mm wide)  [AMBER]")
+print(f"  Lower:     {PUMP_COUNT}x WX3 pumps at Y={[f'{y:.0f}' for y in pump_y_positions]}")
+print(f"  Upper:     Electronics tray (lift-out, Z={TRAY_Z}mm)")
+print(f"  Tray ledges on both divider walls, 4 registration tab slots")
 print()
-print(f"DRY ZONE:    X={_dry_left:.1f} to {_dry_right:.1f}mm ({_dry_right - _dry_left:.0f}mm wide)  [PURPLE]")
+print(f"OIL ZONE:    X={_oil_left:.1f} to {_oil_right:.1f}mm ({_oil_right - _oil_left:.0f}mm wide)  [PURPLE]")
 print(f"  Bottles:   {BOTTLE_COUNT}x {BOTTLE_DIA}mm dia wells at X={BOTTLE_ROW_X:.1f}")
 print(f"             Y={[f'{y:.0f}' for y in bottle_y_positions]}")
-print(f"  Elec col:  X≈{(_dry_right + BOTTLE_ROW_X + BOTTLE_WELL_DIA/2 + 4) / 2:.0f}, 3 boards stacked along Y:")
-print(f"    PD+Buck: Z-stacked ({PD_TRIGGER_W}x{PD_TRIGGER_D} + {BUCK_CONV_W}x{BUCK_CONV_D}mm)")
-print(f"    MOSFET:  8-ch board ({MOSFET_BOARD_D}x{MOSFET_BOARD_W}mm, 50mm along Y)")
-print(f"    ESP32:   {ESP32_D}x{ESP32_W}mm (55mm along Y)")
-print(f"  BME280:    {BME280_W}x{BME280_D}mm (on top of MOSFET board)")
-print(f"  Atm driver:{ATOMIZER_DRIVER_W}x{ATOMIZER_DRIVER_D}mm (relocated to wet zone)")
-print(f"  USB-C:     {USBC_PORT_W}x{USBC_PORT_H}mm (rear wall)")
+print(f"  Spill-isolated from electronics (no PCBs in this zone)")
+print()
+print("--- Electronics Tray (lift-out shelf) ---")
+print(f"  Left col:  ESP32 ({ESP32_D}x{ESP32_W}mm)")
+print(f"  Right col: MOSFET ({MOSFET_BOARD_D}x{MOSFET_BOARD_W}mm)")
+print(f"             PD+Buck Z-stacked ({PD_TRIGGER_W}x{PD_TRIGGER_D} + {BUCK_CONV_W}x{BUCK_CONV_D}mm)")
+print(f"             Atm driver ({ATOMIZER_DRIVER_D}x{ATOMIZER_DRIVER_W}mm)")
+print(f"             BME280 ({BME280_W}x{BME280_D}mm)")
+print(f"  USB-C:     {USBC_PORT_W}x{USBC_PORT_H}mm (rear wall, center zone)")
 print()
 print("--- Top Shell Zones (left to right) ---")
 print(f"MIST+FILL:   above wet zone  [BLUE]")
 print(f"  Chimney:    {MIST_CHANNEL_DIA}mm bore at ({MIST_POS_X}, {MIST_POS_Y})")
 print(f"  Exhaust:    {EXHAUST_W}x{EXHAUST_D}mm chevron, 3 vanes")
 print(f"  Fill chute: {FILL_CHUTE_TOP_W}x{FILL_CHUTE_TOP_D}mm top → {FILL_CHUTE_BOT_W}x{FILL_CHUTE_BOT_D}mm bottom")
-print(f"  Fill pos:   ({FILL_CHUTE_POS_X}, {FILL_CHUTE_POS_Y}), lip {FILL_CHUTE_LIP_H}mm")
 print()
-print(f"TRANSIT:     above pump row  [TEAL]")
+print(f"TRANSIT:     above center zone  [TEAL]")
 print(f"  Structural gap, cable routing")
 print()
-print(f"STORAGE:     above dry zone  [ORANGE]")
+print(f"STORAGE:     above oil zone  [ORANGE]")
 print(f"  Compartment for spare bottles, accessories, etc.")
 print(f"  Lid recess: {STORAGE_LID_RECESS}mm step for snap-fit dust cover")
 print()
-print(f"BUTTONS:     {TOUCH_BTN_COUNT}x TTP223 capacitive touch on top surface")
-print(f"  Power + Mist Intensity, {TOUCH_BTN_SPACING}mm apart")
-print(f"  Sensing through 1.5mm PETG ceiling")
-print()
-print(f"ACCESS:      LIFT TOP SHELL OFF — full access to everything")
-print()
-print("--- Connections ---")
-print(f"Magnets:     {len(magnet_positions)}x {MAGNET_DIA}mm dia x {MAGNET_H}mm")
-print(f"Pins:        {len(pin_positions)}x {PIN_DIA}mm dia x {PIN_H}mm")
-print(f"Hex mesh:    all 4 walls (front + rear + left + right)")
-print(f"LED strip:   continuous perimeter loop, {LED_CHANNEL_W}x{LED_CHANNEL_D}mm channel")
-print(f"Branding:    'SOMNI LABS' debossed on rear panel ({BRAND_FONT_SIZE}pt + {BRAND_SUB_SIZE}pt)")
-print()
-print(f"--- Assembly (drop-in) ---")
-print(f"Rail slots:  ESP32, MOSFET board, PD trigger (slide in from top)")
-print(f"Snap tabs:   Buck converter, atomizer driver (press-fit)")
-print(f"Shelf ledge: {PUMP_COUNT}x pump pockets (anti-vibration lips)")
-print(f"Swing latch: {BOTTLE_COUNT}x bottle wells (hinged clips)")
-print()
-print(f"--- Wire Channels ({CHANNEL_W}x{CHANNEL_D}mm floor grooves) ---")
-print(f"Power trunk: USB-C → PD trigger → buck → MOSFET board + ESP32")
-print(f"Signal trunk:ESP32 ↔ MOSFET board (6 GPIO)")
-print(f"Pump spurs:  MOSFET → right divider → {PUMP_COUNT}x pumps")
-print(f"Atm spur:    MOSFET → dry zone → pump row → wet zone → atomizer driver")
-print(f"LED spur:    ESP32 → rear-right LED strip entry")
-print(f"Wire ports:  {PUMP_COUNT + 2}x cross-divider ({WIRE_PORT_W}x{WIRE_PORT_H}mm)")
-print()
-print("--- Power Architecture ---")
-print(f"USB-C PD → CH224K (12V) → MP1584EN → 5V rail")
-print(f"  5V rail: pumps + atomizer + ESP32 + LEDs")
-print(f"  Alt: USB-C 5V/3A direct (no PD needed)")
+print(f"--- Assembly (building Legos) ---")
+print(f"1. Drop pumps into center zone pockets (shelf ledges hold them)")
+print(f"2. Set electronics tray on divider ledges (tabs locate it)")
+print(f"3. Drop boards into tray pockets (rail slots + snap tabs)")
+print(f"4. Drop bottles into oil zone wells (swing latches lock them)")
+print(f"5. Place top shell (magnets + pins align it)")
 print()
 print(f"Print bed:   {BASE_W}x{BASE_D}mm fits QIDI Q2 (245x255mm)")
