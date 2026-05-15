@@ -178,10 +178,23 @@ HEX_CELL_SIZE = 9            # flat-to-flat distance of each hex cell
 HEX_WALL = 1.5               # wall between hex cells
 HEX_MARGIN = 5               # margin from panel edges before hex pattern starts
 
-# --- Bottle access hatch (side panel) ---
-HATCH_W = 140                # hatch opening width (most of one side)
-HATCH_H = 40                 # hatch opening height
+# --- Bottle access hatch (right side panel, +X wall) ---
+# Sized to give full hand access to the bottle cluster for screwing
+# bottles in/out of the receivers. Positioned on the +X wall since
+# the cluster is on the right side of the shell.
+HATCH_W = 100                # hatch opening width (along Y axis on the side wall)
+HATCH_H = 45                 # hatch opening height (needs to clear bottle body)
 HATCH_WALL = 2.0             # hatch panel thickness
+
+# --- Tube routing channel ---
+# Collects all 5 tubes from the receiver tops and routes them to
+# pass-through grommets at the base/shell interface.
+TUBE_CHANNEL_W = 30          # channel width (bundles 5 tubes)
+TUBE_CHANNEL_D = 8           # channel depth into the wall
+TUBE_GROMMET_DIA = 20        # single large grommet hole for all 5 tubes
+# Grommet exits at the shell floor near the pump divider wall
+TUBE_EXIT_X = DIVIDER_X      # align with pump divider
+TUBE_EXIT_Y = 0              # centered front-to-back
 
 # --- LED strip channel ---
 LED_CHANNEL_W = 12           # WS2812B strip width
@@ -736,14 +749,19 @@ def build_top_shell():
         )
         shell = shell.union(vane)
 
-    # --- Bottle access hatch (front face, -Y wall) ---
-    # Rectangular opening centered on the front wall
-    hatch_z_center = TOP_H / 2
+    # --- Bottle access hatch (right side, +X wall) ---
+    # Positioned on the right wall to give hand access to the bottle cluster.
+    # The opening is centered vertically on the bottle hang zone.
+    hatch_z_bottom = WALL + 2   # just above the shell floor
+    # Interpolate the wall X position at hatch center height for the taper
+    hatch_z_center = hatch_z_bottom + HATCH_H / 2
+    t_hatch = hatch_z_center / TOP_H
+    wall_x_at_hatch = (MEETING_W + t_hatch * (TOP_W - MEETING_W)) / 2
     hatch_cut = (
         cq.Workplane("XY")
-        .workplane(offset=hatch_z_center - HATCH_H / 2)
-        .center(0, -MEETING_D / 2)
-        .rect(HATCH_W, WALL + 2)
+        .workplane(offset=hatch_z_bottom)
+        .center(wall_x_at_hatch, CLUSTER_CENTER_Y)
+        .rect(WALL + 2, HATCH_W)
         .extrude(HATCH_H)
     )
     shell = shell.cut(hatch_cut)
@@ -753,20 +771,56 @@ def build_top_shell():
     lip_depth = 2.0
     hatch_lip_outer = (
         cq.Workplane("XY")
-        .workplane(offset=hatch_z_center - HATCH_H / 2 - lip_thickness)
-        .center(0, -(MEETING_D / 2 - WALL))
-        .rect(HATCH_W + lip_thickness * 2, lip_depth)
+        .workplane(offset=hatch_z_bottom - lip_thickness)
+        .center(wall_x_at_hatch - WALL, CLUSTER_CENTER_Y)
+        .rect(lip_depth, HATCH_W + lip_thickness * 2)
         .extrude(HATCH_H + lip_thickness * 2)
     )
     hatch_lip_inner = (
         cq.Workplane("XY")
-        .workplane(offset=hatch_z_center - HATCH_H / 2 - 0.1)
-        .center(0, -(MEETING_D / 2 - WALL))
-        .rect(HATCH_W, lip_depth + 0.2)
+        .workplane(offset=hatch_z_bottom - 0.1)
+        .center(wall_x_at_hatch - WALL, CLUSTER_CENTER_Y)
+        .rect(lip_depth + 0.2, HATCH_W)
         .extrude(HATCH_H + 0.2)
     )
     hatch_lip = hatch_lip_outer.cut(hatch_lip_inner)
     shell = shell.union(hatch_lip)
+
+    # --- Tube routing channel ---
+    # A channel in the shell ceiling that collects tubes from all 5 receivers
+    # and routes them toward the tube exit grommet at the shell floor.
+    # Horizontal channel along the ceiling connecting receivers to exit area
+    channel_z = TOP_H - WALL - TUBE_CHANNEL_D
+    tube_channel_horiz = (
+        cq.Workplane("XY")
+        .workplane(offset=channel_z)
+        .center(CLUSTER_CENTER_X, CLUSTER_CENTER_Y)
+        .rect(TUBE_CHANNEL_W, _cluster_row_gap + RECEIVER_OD + 10)
+        .extrude(TUBE_CHANNEL_D + 0.5)
+    )
+    shell = shell.cut(tube_channel_horiz)
+
+    # Vertical tube chase from ceiling channel down to the shell floor
+    # Routes the tube bundle from the receiver area down to the exit grommet
+    tube_chase = (
+        cq.Workplane("XY")
+        .workplane(offset=-0.5)
+        .center(TUBE_EXIT_X, TUBE_EXIT_Y)
+        .rect(TUBE_CHANNEL_W, TUBE_CHANNEL_W)
+        .extrude(TOP_H - WALL + 1)
+    )
+    shell = shell.cut(tube_chase)
+
+    # Tube exit grommet hole through the shell floor
+    # Single large hole where all 5 tubes pass into the base
+    tube_exit = (
+        cq.Workplane("XY")
+        .workplane(offset=-0.5)
+        .center(TUBE_EXIT_X, TUBE_EXIT_Y)
+        .circle(TUBE_GROMMET_DIA / 2)
+        .extrude(WALL + 1)
+    )
+    shell = shell.cut(tube_exit)
 
     # --- Panel line on top shell ---
     shell = panel_line_cut(shell, PANEL_LINE_Z_TOP, TOP_H, MEETING_W, MEETING_D, TOP_W, TOP_D, PANEL_LINE_WIDTH, PANEL_LINE_DEPTH)
