@@ -255,27 +255,66 @@ BRAND_SUB_SIZE = 6
 # SHARED POSITIONS
 # =============================================================================
 
-# Magnet positions — 6 total
+# Magnet positions — 4 total (one per side)
 magnet_positions = [
-    (0, -MEETING_D / 2 + MAGNET_INSET),
-    (0,  MEETING_D / 2 - MAGNET_INSET),
-    (-MEETING_W / 2 + MAGNET_INSET, -MEETING_D / 4),
-    (-MEETING_W / 2 + MAGNET_INSET,  MEETING_D / 4),
-    ( MEETING_W / 2 - MAGNET_INSET, -MEETING_D / 4),
-    ( MEETING_W / 2 - MAGNET_INSET,  MEETING_D / 4),
+    (0, -MEETING_D / 2 + MAGNET_INSET),     # front
+    (0,  MEETING_D / 2 - MAGNET_INSET),      # back
+    (-MEETING_W / 2 + MAGNET_INSET, 0),      # left
+    ( MEETING_W / 2 - MAGNET_INSET, 0),      # right
 ]
 
-# Alignment pins — 4 corners
+# Alignment pins — 2 diagonal (for keying)
 pin_positions = [
-    (-MEETING_W / 2 + 15, -MEETING_D / 2 + 15),
-    ( MEETING_W / 2 - 15, -MEETING_D / 2 + 15),
-    (-MEETING_W / 2 + 15,  MEETING_D / 2 - 15),
-    ( MEETING_W / 2 - 15,  MEETING_D / 2 - 15),
+    (-MEETING_W / 2 + 15, -MEETING_D / 2 + 15),   # front-left
+    ( MEETING_W / 2 - 15,  MEETING_D / 2 - 15),    # rear-right
 ]
 
-# Pump Y positions (row of 5 centered along Y)
-pump_y_positions = [-(PUMP_COUNT - 1) / 2 * PUMP_SPACING + i * PUMP_SPACING
-                     for i in range(PUMP_COUNT)]
+# Pump grid positions (2+3 layout)
+# Center zone boundaries at meeting line
+_center_inner_left = DIVIDER_WET_X + WALL_INNER / 2
+_center_inner_right = MEETING_W / 2 - WALL
+
+# Column X positions
+_pump_left_col_cx = _center_inner_left + 1 + PUMP_BODY_W / 2
+_pump_right_col_cx = _pump_left_col_cx + PUMP_BODY_W / 2 + PUMP_COL_GAP + PUMP_BODY_W / 2
+
+# Per-column Y positions (centered at Y=0)
+_pump_left_col_ys = [
+    -(PUMP_LEFT_COL_COUNT - 1) / 2 * (PUMP_BODY_D + PUMP_ROW_GAP) + i * (PUMP_BODY_D + PUMP_ROW_GAP)
+    for i in range(PUMP_LEFT_COL_COUNT)
+]
+_pump_right_col_ys = [
+    -(PUMP_RIGHT_COL_COUNT - 1) / 2 * (PUMP_BODY_D + PUMP_ROW_GAP) + i * (PUMP_BODY_D + PUMP_ROW_GAP)
+    for i in range(PUMP_RIGHT_COL_COUNT)
+]
+
+# Flat list of all pump positions: (x, y) for iteration
+pump_grid_positions = (
+    [(_pump_left_col_cx, y) for y in _pump_left_col_ys] +
+    [(_pump_right_col_cx, y) for y in _pump_right_col_ys]
+)
+
+# All pump Y positions (union of both columns, for tube pass-throughs)
+_all_pump_ys = sorted(set(_pump_left_col_ys + _pump_right_col_ys))
+
+# Bottle grid positions (3+2 layout in top shell)
+_top_center_left = DIVIDER_WET_X + WALL_INNER / 2
+_top_center_right = MEETING_W / 2 - WALL
+_bottle_row1_cx = _top_center_left + 4 + BOTTLE_WELL_DIA / 2   # row 1 near divider
+_bottle_row2_cx = _bottle_row1_cx + BOTTLE_WELL_DIA / 2 + BOTTLE_ROW_GAP + BOTTLE_WELL_DIA / 2
+
+_bottle_row1_ys = [
+    -(BOTTLE_LEFT_ROW_COUNT - 1) / 2 * BOTTLE_Y_SPACING + i * BOTTLE_Y_SPACING
+    for i in range(BOTTLE_LEFT_ROW_COUNT)
+]
+# Row 2 bottles nest between row 1: at Y positions matching row 1 extremes
+_bottle_row2_ys = [_bottle_row1_ys[0], _bottle_row1_ys[-1]]  # Y=-26, Y=+26
+
+# Flat list of all bottle positions: (x, y) for iteration
+bottle_grid_positions = (
+    [(_bottle_row1_cx, y) for y in _bottle_row1_ys] +
+    [(_bottle_row2_cx, y) for y in _bottle_row2_ys]
+)
 
 
 # =============================================================================
