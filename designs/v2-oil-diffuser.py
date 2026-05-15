@@ -582,27 +582,10 @@ def build_base():
         )
         base = base.cut(catch_notch)
 
-    # Tube clip posts — guide tubes from bottle wells to pump intake holes
-    # One clip per bottle, positioned between the bottle and the right divider
-    clip_x = (BOTTLE_ROW_X + DIVIDER_DRY_X) / 2
-    for by in bottle_y_positions:
-        clip = (
-            cq.Workplane("XY")
-            .workplane(offset=FLOOR_H)
-            .center(clip_x, by)
-            .circle(TUBE_CLIP_DIA / 2)
-            .extrude(TUBE_CLIP_H)
-        )
-        # Hollow center for tube to pass through
-        clip_bore = (
-            cq.Workplane("XY")
-            .workplane(offset=FLOOR_H - 0.1)
-            .center(clip_x, by)
-            .circle(2)
-            .extrude(TUBE_CLIP_H + 0.2)
-        )
-        base = base.union(clip)
-        base = base.cut(clip_bore)
+    # NOTE: Tube clip posts removed — tubes enter from screw-on caps at the
+    # top of each bottle, run down through the bottle well, and pass through
+    # the right divider's tube holes (at cap height Z≈57mm) to reach pumps.
+    # No floor-level guides needed.
 
     # === ELECTRONICS COLUMN (right side of dry zone, X ≈ 55–90) ===
     # 34.6mm-wide column to the right of bottles, stacked along Y.
@@ -713,35 +696,13 @@ def build_base():
     # BME280 sensor — sits on top of MOSFET board (Z-stacked in electronics column).
     # Tiny board (15×12×5mm) rests above the MOSFET (Z=FLOOR_H+MOSFET_BOARD_H+2).
     # No separate pocket needed — it just sits on the MOSFET board surface.
-    # The combined height (MOSFET 12mm + gap 2mm + BME280 5mm = 19mm) is well
-    # within the 64mm usable height.
 
-    # Atomizer driver pocket — wet zone floor, rear area (near atomizer)
-    # Driver board (35×25mm) placed flat on floor behind the atomizer.
-    _atm_drv_x = ATOMIZER_POS_X
-    _atm_drv_y = ATOMIZER_POS_Y + ATOMIZER_MOUNT_DIA / 2 + 5 + ATOMIZER_DRIVER_D / 2
-    atm_driver_pocket = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(_atm_drv_x, _atm_drv_y)
-        .rect(ATOMIZER_DRIVER_W, ATOMIZER_DRIVER_D)
-        .extrude(8)
-    )
-    base = base.cut(atm_driver_pocket)
-
-    # Snap tabs for atomizer driver board
-    _atm_pocket_hw = (ATOMIZER_DRIVER_W + 2) / 2  # pocket has +2 tolerance
-    _atm_mid_z = FLOOR_H + 3  # mid-height of 6mm pocket
-    for _snap_side in [-1, 1]:
-        snap = (
-            cq.Workplane("XY")
-            .workplane(offset=_atm_mid_z - SNAP_NUB_W / 2)
-            .center(_atm_drv_x + _snap_side * (_atm_pocket_hw - SNAP_NUB_H / 2),
-                    _atm_drv_y)
-            .rect(SNAP_NUB_H, SNAP_NUB_W)
-            .extrude(SNAP_NUB_W)
-        )
-        base = base.union(snap)
+    # Atomizer driver — Z-stacked on top of ESP32 in the electronics column.
+    # Driver board (35×25mm) oriented 25mm along X, 35mm along Y.
+    # ESP32 top is at Z=FLOOR_H+ESP32_H+0.5≈16.5mm. Driver sits at Z≈18mm.
+    # Wire runs from driver → through right divider → through left divider
+    # → down to atomizer piezo in the wet zone floor.
+    _atm_drv_z = FLOOR_H + 0.5 + ESP32_H + 2  # on top of ESP32 with 2mm gap
 
     # --- USB-C port cutout (rear wall, aligned with electronics column) ---
     usbc_cutout = (
@@ -807,7 +768,10 @@ def build_base():
     )
     base = base.cut(collector)
 
-    # Atomizer spur: MOSFET pocket → front wall → right divider → pump row → left divider → wet zone
+    # Atomizer spur: electronics column → right divider → pump row → left divider
+    # The atomizer driver is now Z-stacked on the ESP32 in the dry zone.
+    # Wire runs from the driver → through the pump spur corridor (front wall)
+    # → across pump row → through left divider → down to atomizer piezo.
     _atm_spur_y = interior_y_min + 3  # 3mm from front wall, clear of pump_0
 
     # Segment 1: dry zone floor, from collector to right divider
@@ -842,23 +806,23 @@ def build_base():
     )
     base = base.cut(atm_seg2)
 
-    # Segment 3a: wet zone, Y-direction from _atm_spur_y up to atomizer driver Y
-    atm_seg3a = (
+    # Segment 3: wet zone, from left divider to atomizer mount area
+    # Short L-shaped channel: along front wall then to atomizer X position
+    _atm_seg3_x_start = ATOMIZER_POS_X
+    _atm_seg3_x_end = DIVIDER_WET_X - WALL_INNER / 2 - 1
+    atm_seg3 = (
         cq.Workplane("XY")
-        .box(CHANNEL_W, abs(_atm_drv_y - _atm_spur_y), CHANNEL_D)
-        .translate((DIVIDER_WET_X - WALL_INNER / 2 - 3,
-                     (_atm_spur_y + _atm_drv_y) / 2,
+        .box(abs(_atm_seg3_x_end - _atm_seg3_x_start), CHANNEL_W, CHANNEL_D)
+        .translate(((_atm_seg3_x_start + _atm_seg3_x_end) / 2, _atm_spur_y,
                      FLOOR_H + CHANNEL_D / 2))
     )
-    base = base.cut(atm_seg3a)
+    base = base.cut(atm_seg3)
 
-    # Segment 3b: wet zone, X-direction from left divider to atomizer driver
-    _atm_seg3b_x_start = _atm_drv_x + ATOMIZER_DRIVER_W / 2 + 1
-    _atm_seg3b_x_end = DIVIDER_WET_X - WALL_INNER / 2 - 3
+    # Segment 3b: turn from front wall toward atomizer center
     atm_seg3b = (
         cq.Workplane("XY")
-        .box(abs(_atm_seg3b_x_end - _atm_seg3b_x_start), CHANNEL_W, CHANNEL_D)
-        .translate(((_atm_seg3b_x_start + _atm_seg3b_x_end) / 2, _atm_drv_y,
+        .box(CHANNEL_W, abs(ATOMIZER_POS_Y - _atm_spur_y), CHANNEL_D)
+        .translate((ATOMIZER_POS_X, (_atm_spur_y + ATOMIZER_POS_Y) / 2,
                      FLOOR_H + CHANNEL_D / 2))
     )
     base = base.cut(atm_seg3b)
@@ -1495,9 +1459,8 @@ def build_components():
     y_cursor += MOSFET_BOARD_W + 3
     esp32_y = y_cursor + ESP32_W / 2
 
-    # Atomizer driver position (wet zone, behind atomizer)
-    _atm_drv_x = ATOMIZER_POS_X
-    _atm_drv_y = ATOMIZER_POS_Y + ATOMIZER_MOUNT_DIA / 2 + 5 + ATOMIZER_DRIVER_D / 2
+    # Atomizer driver position (Z-stacked on ESP32 in electronics column)
+    _atm_drv_z = FLOOR_H + 0.5 + ESP32_H + 2  # on top of ESP32
 
     # =============================================
     # WET ZONE components
@@ -1513,12 +1476,12 @@ def build_components():
     )
     parts["atomizer_disk"] = (atomizer_disk, (0.75, 0.75, 0.15, 0.95))  # gold
 
-    # Atomizer driver board (35×25mm, on wet zone floor behind atomizer)
+    # Atomizer driver board (25mm X × 35mm Y, Z-stacked on top of ESP32)
     atomizer_driver = (
         cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + 0.5)
-        .center(_atm_drv_x, _atm_drv_y)
-        .rect(ATOMIZER_DRIVER_W, ATOMIZER_DRIVER_D)
+        .workplane(offset=_atm_drv_z)
+        .center(elec_col_x, esp32_y)
+        .rect(ATOMIZER_DRIVER_D, ATOMIZER_DRIVER_W)  # 25mm X, 35mm Y (rotated)
         .extrude(6)
     )
     parts["atomizer_driver"] = (atomizer_driver, (0.2, 0.6, 0.2, 0.95))  # green PCB
@@ -1696,8 +1659,9 @@ def build_components():
     _collector_x = _spur_x_end + CHANNEL_W / 2
     _atm_spur_y = -(MEETING_D / 2 - WALL - 2) + 3
 
-    _atm_drv_x_ch = ATOMIZER_POS_X
-    _atm_drv_y_ch = ATOMIZER_POS_Y + ATOMIZER_MOUNT_DIA / 2 + 5 + ATOMIZER_DRIVER_D / 2
+    # Atomizer spur target is now the atomizer piezo itself (driver moved to dry zone)
+    _atm_target_x = ATOMIZER_POS_X
+    _atm_target_y = ATOMIZER_POS_Y
 
     # Power trunk (hot pink) — full length along electronics column
     _pt_y_start = _pd_buck_y_ch - _pd_buck_d_ch / 2 - 2
@@ -1769,22 +1733,21 @@ def build_components():
     )
     parts["wire_atm_spur_2"] = (atm_s2_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
 
-    # Segment 3a: wet zone vertical
-    _wet_wall_x = DIVIDER_WET_X - WALL_INNER / 2 - 3
+    # Segment 3a: wet zone horizontal — left divider to atomizer X at _atm_spur_y
+    _as3a_xs = _atm_target_x
+    _as3a_xe = DIVIDER_WET_X - WALL_INNER / 2 - 1
     atm_s3a_vis = (
         cq.Workplane("XY")
-        .box(CHANNEL_W - 0.5, abs(_atm_drv_y_ch - _atm_spur_y), CHANNEL_D - 0.5)
-        .translate((_wet_wall_x, (_atm_spur_y + _atm_drv_y_ch) / 2, _ch_z))
+        .box(abs(_as3a_xe - _as3a_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
+        .translate(((_as3a_xs + _as3a_xe) / 2, _atm_spur_y, _ch_z))
     )
     parts["wire_atm_spur_3a"] = (atm_s3a_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
 
-    # Segment 3b: wet zone horizontal to driver
-    _as3b_xs = _atm_drv_x_ch + ATOMIZER_DRIVER_W / 2 + 1
-    _as3b_xe = _wet_wall_x
+    # Segment 3b: wet zone vertical — turn from _atm_spur_y to atomizer center
     atm_s3b_vis = (
         cq.Workplane("XY")
-        .box(abs(_as3b_xe - _as3b_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
-        .translate(((_as3b_xs + _as3b_xe) / 2, _atm_drv_y_ch, _ch_z))
+        .box(CHANNEL_W - 0.5, abs(_atm_target_y - _atm_spur_y), CHANNEL_D - 0.5)
+        .translate((_atm_target_x, (_atm_spur_y + _atm_target_y) / 2, _ch_z))
     )
     parts["wire_atm_spur_3b"] = (atm_s3b_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
 
