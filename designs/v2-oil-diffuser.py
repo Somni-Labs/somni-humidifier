@@ -1675,24 +1675,30 @@ center_marker = (
 show_object(center_marker, name="zone_center",
             options={"color": (0.92, 0.69, 0.13, 0.85)})  # amber
 
+# Top shell markers — compute tapered dimensions at marker Z
+_top_marker_z = BASE_H + TOP_H - WALL - marker_h / 2 - 1  # Z ≈ 125.25
+_top_marker_t = (TOP_H - WALL - marker_h / 2 - 1) / TOP_H  # fraction into top shell
+_top_marker_w = MEETING_W + _top_marker_t * (TOP_W - MEETING_W)
+_top_marker_d = MEETING_D + _top_marker_t * (TOP_D - MEETING_D)
+
 # Top mist+fill zone marker (blue)
-mist_fill_marker_w = abs(TOP_DIVIDER_WET_X - (-(MEETING_W / 2 - WALL)))
+mist_fill_marker_w = abs(TOP_DIVIDER_WET_X - (-(_top_marker_w / 2 - WALL)))
 mist_fill_marker = (
     cq.Workplane("XY")
-    .box(mist_fill_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
-    .translate(((-(MEETING_W / 2 - WALL) + TOP_DIVIDER_WET_X) / 2, 0,
-                BASE_H + TOP_H - WALL - marker_h / 2 - 1))
+    .box(mist_fill_marker_w - 4, _top_marker_d - WALL * 2 - 8, marker_h)
+    .translate(((-(_top_marker_w / 2 - WALL) + TOP_DIVIDER_WET_X) / 2, 0,
+                _top_marker_z))
 )
 show_object(mist_fill_marker, name="zone_mist_fill",
             options={"color": (0.15, 0.56, 0.94, 0.85)})  # blue
 
 # Top bottles+storage zone marker (orange)
-bottles_marker_w = (MEETING_W / 2 - WALL) - TOP_DIVIDER_WET_X - WALL_INNER / 2
+bottles_marker_w = (_top_marker_w / 2 - WALL) - TOP_DIVIDER_WET_X - WALL_INNER / 2
 bottles_marker = (
     cq.Workplane("XY")
-    .box(bottles_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
-    .translate(((TOP_DIVIDER_WET_X + WALL_INNER / 2 + MEETING_W / 2 - WALL) / 2, 0,
-                BASE_H + TOP_H - WALL - marker_h / 2 - 1))
+    .box(bottles_marker_w - 4, _top_marker_d - WALL * 2 - 8, marker_h)
+    .translate(((TOP_DIVIDER_WET_X + WALL_INNER / 2 + _top_marker_w / 2 - WALL) / 2, 0,
+                _top_marker_z))
 )
 show_object(bottles_marker, name="zone_bottles_storage",
             options={"color": (0.96, 0.49, 0.13, 0.85)})  # orange
