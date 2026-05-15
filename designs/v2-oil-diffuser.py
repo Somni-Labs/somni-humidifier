@@ -1,12 +1,12 @@
 """
-Somni Oil Diffuser — V2.2 "Night City"
+Somni Oil Diffuser — V2.3 "Night City"
 
 Cyberpunk-styled essential oil diffuser with automated scent blending.
 200x160mm rectangular footprint (fits QIDI Q2 245x255mm bed).
 
 Two-part enclosure connected via magnets:
   BASE  — holds everything: reservoir, atomizer, pumps, bottles, electronics
-  SHELL — purely aesthetic lid: mist chimney, exhaust port, fill port, hex mesh
+  SHELL — three-zone functional lid: fill chute, mist chimney, storage
 
 Bottles sit upright in the base. Lift the top shell off for full access
 to bottles, pumps, electronics, and reservoir. No hatch, no hinges.
@@ -16,11 +16,16 @@ Base layout (three zones, left to right):
   PUMP ROW  (center strip)  — 5 peristaltic pumps on a divider wall
   DRY ZONE  (right,  ~45%)  — 5 bottle wells (front) + electronics (rear)
 
+Top shell layout (three zones, matching base dividers):
+  MIST+FILL  (left)   — mist chimney + chevron exhaust + water fill chute
+  TRANSIT    (center) — structural / cable routing gap above pump row
+  STORAGE    (right)  — compartment for accessories/spare bottles
+
 Tube path: bottle → short tube → pump intake (same zone, ~30mm) →
            pump output → into reservoir (through divider)
 
 Aesthetic: angular tapered sides, hex mesh panels with LED glow-through,
-panel line chamfers, chevron exhaust port.
+panel line chamfers, chevron exhaust port. Color-coded zones for clarity.
 
 Loadable by cadquery-server via show_object().
 """
@@ -153,10 +158,26 @@ MIST_CHANNEL_WALL = 2.5
 MIST_POS_X = ATOMIZER_POS_X
 MIST_POS_Y = ATOMIZER_POS_Y
 
-# --- Water fill port (top surface) ---
-FILL_PORT_DIA = 30
-FILL_PORT_POS_X = -60
-FILL_PORT_POS_Y = 35
+# --- Water fill chute (top shell, left zone) ---
+# Funnel on top surface that channels water down through the top shell
+# directly into the wet zone reservoir below. Offset to rear of wet zone
+# to avoid the mist chimney (which is centered at ATOMIZER_POS_X, 0).
+FILL_CHUTE_TOP_W = 35           # opening at top surface (wide funnel mouth)
+FILL_CHUTE_TOP_D = 40
+FILL_CHUTE_BOT_W = 18           # narrower at bottom (drip into reservoir)
+FILL_CHUTE_BOT_D = 25
+FILL_CHUTE_POS_X = ATOMIZER_POS_X  # same X as atomizer (wet zone center)
+FILL_CHUTE_POS_Y = 45              # rear half of wet zone, away from chimney
+FILL_CHUTE_LIP_H = 3               # raised lip to prevent spills
+
+# --- Top shell zone dividers ---
+# Mirror the base dividers but in the top shell coordinate space
+TOP_DIVIDER_WET_X = DIVIDER_WET_X    # left divider (fill chute | mist zone)
+TOP_DIVIDER_DRY_X = DIVIDER_DRY_X    # right divider (mist zone | storage)
+
+# --- Storage compartment (top shell, right zone) ---
+STORAGE_LID_RECESS = 2.0       # recessed edge for a snap-fit lid
+STORAGE_WALL = 2.0             # inner walls of storage compartment
 
 # --- Exhaust port (top surface, chevron) ---
 EXHAUST_W = 40
@@ -730,9 +751,12 @@ def build_base():
 # =============================================================================
 
 def build_top_shell():
-    """Simple aesthetic lid — no bottles, no tubes, no hatch.
+    """Three-zone functional lid matching base divider layout.
 
-    Just: mist chimney, chevron exhaust, fill port, panel lines, hex mesh.
+    MIST+FILL (left)   — mist chimney + chevron exhaust + water fill chute
+    TRANSIT   (center) — structural gap above pump row, cable routing
+    STORAGE   (right)  — compartment for accessories, spare bottles, etc.
+
     Lifts off for full access to everything in the base.
     """
 
@@ -747,7 +771,89 @@ def build_top_shell():
     ).translate((0, 0, WALL))
     shell = shell.cut(cavity)
 
-    # --- Mist channel (internal chimney) ---
+    # --- Internal divider walls (creating three zones) ---
+    # These mirror the base dividers so each top zone aligns with its base zone.
+    top_divider_h = TOP_H - WALL * 2 - 1  # slightly shorter than cavity
+
+    # Left divider (fill zone | mist zone)
+    top_div_left = (
+        cq.Workplane("XY")
+        .workplane(offset=WALL)
+        .center(TOP_DIVIDER_WET_X, 0)
+        .rect(WALL_INNER, MEETING_D - WALL * 2 - 2)
+        .extrude(top_divider_h)
+    )
+    shell = shell.union(top_div_left)
+
+    # Right divider (mist zone | storage)
+    top_div_right = (
+        cq.Workplane("XY")
+        .workplane(offset=WALL)
+        .center(TOP_DIVIDER_DRY_X, 0)
+        .rect(WALL_INNER, MEETING_D - WALL * 2 - 2)
+        .extrude(top_divider_h)
+    )
+    shell = shell.union(top_div_right)
+
+    # =============================================
+    # MIST+FILL ZONE (left) — chimney, exhaust, fill chute
+    # =============================================
+
+    # --- Water fill chute (rear of left zone) ---
+    # Tapered funnel: wide opening at top, narrow channel at bottom.
+    # Water pours in from the top and drains into the wet zone reservoir
+    # when the shell sits on the base. The bottom of the chute is open
+    # (shell bottom is open at Z=0) so water falls straight through.
+
+    # Top opening (funnel mouth) — cut through the top ceiling
+    fill_top_cut = (
+        cq.Workplane("XY")
+        .workplane(offset=TOP_H - WALL - 0.1)
+        .center(FILL_CHUTE_POS_X, FILL_CHUTE_POS_Y)
+        .rect(FILL_CHUTE_TOP_W, FILL_CHUTE_TOP_D)
+        .extrude(WALL + 0.2)
+    )
+    shell = shell.cut(fill_top_cut)
+
+    # Raised lip around the fill opening to prevent spills
+    fill_lip = (
+        cq.Workplane("XY")
+        .workplane(offset=TOP_H)
+        .center(FILL_CHUTE_POS_X, FILL_CHUTE_POS_Y)
+        .rect(FILL_CHUTE_TOP_W + 4, FILL_CHUTE_TOP_D + 4)
+        .rect(FILL_CHUTE_TOP_W, FILL_CHUTE_TOP_D)
+        .extrude(FILL_CHUTE_LIP_H)
+    )
+    shell = shell.union(fill_lip)
+
+    # Internal funnel walls — tapered from top opening down to narrower bottom.
+    # Build the funnel centered at origin, then translate to position.
+    # (CadQuery loft with off-center workplanes can double-offset — avoid it.)
+    _funnel_outer = (
+        cq.Workplane("XY")
+        .workplane(offset=WALL)
+        .rect(FILL_CHUTE_BOT_W + WALL_INNER * 2, FILL_CHUTE_BOT_D + WALL_INNER * 2)
+        .workplane(offset=TOP_H - WALL * 2)
+        .rect(FILL_CHUTE_TOP_W + WALL_INNER * 2, FILL_CHUTE_TOP_D + WALL_INNER * 2)
+        .loft()
+    ).translate((FILL_CHUTE_POS_X, FILL_CHUTE_POS_Y, 0))
+
+    _funnel_inner = (
+        cq.Workplane("XY")
+        .workplane(offset=WALL - 0.1)
+        .rect(FILL_CHUTE_BOT_W, FILL_CHUTE_BOT_D)
+        .workplane(offset=TOP_H - WALL * 2 + 0.2)
+        .rect(FILL_CHUTE_TOP_W, FILL_CHUTE_TOP_D)
+        .loft()
+    ).translate((FILL_CHUTE_POS_X, FILL_CHUTE_POS_Y, 0))
+
+    funnel_walls = _funnel_outer.cut(_funnel_inner)
+    shell = shell.union(funnel_walls)
+
+    # Cut the inner bore of the funnel to ensure it's clear
+    shell = shell.cut(_funnel_inner)
+
+    # --- Mist chimney + exhaust (also in left zone, above atomizer) ---
     chimney_outer = (
         cq.Workplane("XY")
         .workplane(offset=WALL)
@@ -766,27 +872,7 @@ def build_top_shell():
     )
     shell = shell.cut(chimney_bore)
 
-    # --- Water fill port (top surface) ---
-    fill_hole = (
-        cq.Workplane("XY")
-        .workplane(offset=TOP_H - WALL - 0.1)
-        .center(FILL_PORT_POS_X, FILL_PORT_POS_Y)
-        .circle(FILL_PORT_DIA / 2)
-        .extrude(WALL + 0.2)
-    )
-    shell = shell.cut(fill_hole)
-
-    fill_lip = (
-        cq.Workplane("XY")
-        .workplane(offset=TOP_H)
-        .center(FILL_PORT_POS_X, FILL_PORT_POS_Y)
-        .circle(FILL_PORT_DIA / 2 + 2)
-        .circle(FILL_PORT_DIA / 2)
-        .extrude(1.5)
-    )
-    shell = shell.union(fill_lip)
-
-    # --- Chevron exhaust port ---
+    # Chevron exhaust port (on top surface, above the chimney)
     exhaust_pts = [
         (EXHAUST_POS_X, EXHAUST_POS_Y + EXHAUST_D / 2),
         (EXHAUST_POS_X + EXHAUST_W / 2, EXHAUST_POS_Y),
@@ -805,7 +891,7 @@ def build_top_shell():
     )
     shell = shell.cut(exhaust_cut)
 
-    # Internal vanes
+    # Internal vanes for directed airflow
     vane_thickness = 1.2
     for v in range(3):
         vane_offset = -EXHAUST_D / 4 + v * (EXHAUST_D / 4)
@@ -822,6 +908,70 @@ def build_top_shell():
             .extrude(WALL)
         )
         shell = shell.union(vane)
+
+    # =============================================
+    # TRANSIT ZONE (center) — structural gap above pump row
+    # =============================================
+    # This zone provides structural rigidity and a cable routing path
+    # between the left (mist+fill) and right (storage) zones.
+    # The divider walls already define the boundaries. No additional
+    # features needed — it acts as an air gap / structural member.
+
+    # =============================================
+    # STORAGE ZONE (right) — accessory compartment
+    # =============================================
+    # Open-top compartment accessed by lifting the whole top shell off.
+    # Has a recessed lip around the top for a snap-fit dust lid (separate print).
+
+    # Calculate storage compartment bounds (inside the right zone)
+    # Taper at top surface
+    _t_top = 1.0  # at the very top
+    _w_at_top = MEETING_W + _t_top * (TOP_W - MEETING_W)
+    _stor_left = TOP_DIVIDER_DRY_X + WALL_INNER / 2 + STORAGE_WALL
+    _stor_right = _w_at_top / 2 - WALL - STORAGE_WALL
+    _stor_front = -(MEETING_D / 2 - WALL * 2 - STORAGE_WALL)
+    _stor_back = MEETING_D / 2 - WALL * 2 - STORAGE_WALL
+    _stor_w = _stor_right - _stor_left
+    _stor_d = _stor_back - _stor_front
+    _stor_cx = (_stor_left + _stor_right) / 2
+    _stor_cy = (_stor_front + _stor_back) / 2
+
+    if _stor_w > 5 and _stor_d > 5:
+        # Storage cavity (hollowed interior of right zone)
+        stor_cavity = (
+            cq.Workplane("XY")
+            .workplane(offset=WALL + 1)
+            .center(_stor_cx, _stor_cy)
+            .rect(_stor_w, _stor_d)
+            .extrude(TOP_H - WALL * 2 - 2)
+        )
+        shell = shell.cut(stor_cavity)
+
+        # Storage access opening on top surface
+        stor_top_cut = (
+            cq.Workplane("XY")
+            .workplane(offset=TOP_H - WALL - 0.1)
+            .center(_stor_cx, _stor_cy)
+            .rect(_stor_w - 2, _stor_d - 2)
+            .extrude(WALL + 0.2)
+        )
+        shell = shell.cut(stor_top_cut)
+
+        # Lid recess lip — stepped edge around the opening for a dust cover
+        lid_recess = (
+            cq.Workplane("XY")
+            .workplane(offset=TOP_H - STORAGE_LID_RECESS)
+            .center(_stor_cx, _stor_cy)
+            .rect(_stor_w + 2, _stor_d + 2)
+            .rect(_stor_w - 2, _stor_d - 2)
+            .extrude(STORAGE_LID_RECESS + 0.1)
+        )
+        # Only cut this if it doesn't go outside the shell
+        shell = shell.cut(lid_recess)
+
+    # =============================================
+    # SHARED FEATURES
+    # =============================================
 
     # --- Matching magnet pockets ---
     for mx, my in magnet_positions:
@@ -848,17 +998,139 @@ def build_top_shell():
 
 
 # =============================================================================
-# ASSEMBLY
+# ASSEMBLY — color-coded per zone for visibility
 # =============================================================================
+#
+# Color legend:
+#   Base:  teal (wet zone), amber (pump row), purple (dry zone)
+#   Top:   blue (mist+fill zone), teal (transit zone), orange (storage)
+#
+# We split each part into zone-colored sub-bodies by cutting with bounding boxes.
 
 base = build_base()
 top_shell = build_top_shell()
 top_shell = top_shell.translate((0, 0, BASE_H))
 
+# --- Zone splitter boxes (oversized, for boolean intersection) ---
+# Base zones — cut at Z=0..BASE_H
+_big_h = BASE_H + 20
+_big_d = BASE_D + 20
+
+# Wet zone: X from far-left to DIVIDER_WET_X
+base_wet_box = (
+    cq.Workplane("XY").box(BASE_W, _big_d, _big_h)
+    .translate((-(BASE_W / 2 + DIVIDER_WET_X) / 2 + DIVIDER_WET_X, 0, _big_h / 2 - 5))
+)
+# Pump row: X from DIVIDER_WET_X to DIVIDER_DRY_X
+pump_row_w = DIVIDER_DRY_X - DIVIDER_WET_X
+base_pump_box = (
+    cq.Workplane("XY").box(pump_row_w, _big_d, _big_h)
+    .translate(((DIVIDER_WET_X + DIVIDER_DRY_X) / 2, 0, _big_h / 2 - 5))
+)
+# Dry zone: X from DIVIDER_DRY_X to far-right
+base_dry_box = (
+    cq.Workplane("XY").box(BASE_W, _big_d, _big_h)
+    .translate(((BASE_W / 2 + DIVIDER_DRY_X) / 2 + DIVIDER_DRY_X, 0, _big_h / 2 - 5))
+)
+
+# Show the complete base in a neutral dark color, and overlay zone highlights
+# Using the full base for structural integrity view, zone colors for identification.
 show_object(base, name="base",
-            options={"color": (0.15, 0.15, 0.18, 0.85)})
+            options={"color": (0.12, 0.12, 0.15, 0.55)})
+
+# Top shell zones — offset by BASE_H
+_top_big_h = TOP_H + 20
+
+# Fill zone (left, above wet zone)
+top_fill_box = (
+    cq.Workplane("XY").box(BASE_W, _big_d, _top_big_h)
+    .translate((-(BASE_W / 2 + TOP_DIVIDER_WET_X) / 2 + TOP_DIVIDER_WET_X, 0,
+                BASE_H + _top_big_h / 2 - 5))
+)
+# Mist zone (center)
+top_mist_box = (
+    cq.Workplane("XY").box(pump_row_w, _big_d, _top_big_h)
+    .translate(((TOP_DIVIDER_WET_X + TOP_DIVIDER_DRY_X) / 2, 0,
+                BASE_H + _top_big_h / 2 - 5))
+)
+# Storage zone (right)
+top_stor_box = (
+    cq.Workplane("XY").box(BASE_W, _big_d, _top_big_h)
+    .translate(((BASE_W / 2 + TOP_DIVIDER_DRY_X) / 2 + TOP_DIVIDER_DRY_X, 0,
+                BASE_H + _top_big_h / 2 - 5))
+)
+
+# Show top shell with distinct color
 show_object(top_shell, name="top_shell",
-            options={"color": (0.2, 0.2, 0.25, 0.7)})
+            options={"color": (0.18, 0.18, 0.22, 0.55)})
+
+# --- Zone indicator markers (thin colored slabs on the floor of each zone) ---
+# These provide clear visual color coding without splitting the geometry.
+marker_h = 1.5  # thin slab
+
+# Base wet zone marker (teal)
+wet_marker_w = abs(DIVIDER_WET_X - (-(MEETING_W / 2 - WALL)))
+wet_marker = (
+    cq.Workplane("XY")
+    .box(wet_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
+    .translate(((-(MEETING_W / 2 - WALL) + DIVIDER_WET_X) / 2, 0, FLOOR_H + marker_h / 2))
+)
+show_object(wet_marker, name="zone_wet",
+            options={"color": (0.08, 0.72, 0.65, 0.85)})  # teal
+
+# Base pump row marker (amber)
+pump_marker_w = DIVIDER_DRY_X - DIVIDER_WET_X - WALL_INNER
+pump_marker = (
+    cq.Workplane("XY")
+    .box(pump_marker_w - 2, MEETING_D - WALL * 2 - 8, marker_h)
+    .translate((PUMP_CENTER_X, 0, FLOOR_H + marker_h / 2))
+)
+show_object(pump_marker, name="zone_pumps",
+            options={"color": (0.92, 0.69, 0.13, 0.85)})  # amber
+
+# Base dry zone marker (purple)
+dry_marker_w = abs((MEETING_W / 2 - WALL) - DIVIDER_DRY_X) - WALL_INNER / 2
+dry_marker = (
+    cq.Workplane("XY")
+    .box(dry_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
+    .translate(((DIVIDER_DRY_X + MEETING_W / 2 - WALL) / 2 + WALL_INNER / 4, 0,
+                FLOOR_H + marker_h / 2))
+)
+show_object(dry_marker, name="zone_dry",
+            options={"color": (0.58, 0.27, 0.88, 0.85)})  # purple
+
+# Top mist+fill zone marker (blue) — on the ceiling inside
+mist_fill_marker_w = abs(TOP_DIVIDER_WET_X - (-(MEETING_W / 2 - WALL)))
+mist_fill_marker = (
+    cq.Workplane("XY")
+    .box(mist_fill_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
+    .translate(((-(MEETING_W / 2 - WALL) + TOP_DIVIDER_WET_X) / 2, 0,
+                BASE_H + TOP_H - WALL - marker_h / 2 - 1))
+)
+show_object(mist_fill_marker, name="zone_mist_fill",
+            options={"color": (0.15, 0.56, 0.94, 0.85)})  # blue
+
+# Top transit zone marker (teal)
+transit_marker_w = TOP_DIVIDER_DRY_X - TOP_DIVIDER_WET_X - WALL_INNER
+transit_marker = (
+    cq.Workplane("XY")
+    .box(transit_marker_w - 2, MEETING_D - WALL * 2 - 8, marker_h)
+    .translate(((TOP_DIVIDER_WET_X + TOP_DIVIDER_DRY_X) / 2, 0,
+                BASE_H + TOP_H - WALL - marker_h / 2 - 1))
+)
+show_object(transit_marker, name="zone_transit",
+            options={"color": (0.08, 0.72, 0.65, 0.85)})  # teal
+
+# Top storage zone marker (orange)
+stor_marker_w = abs((MEETING_W / 2 - WALL) - TOP_DIVIDER_DRY_X) - WALL_INNER / 2
+stor_marker = (
+    cq.Workplane("XY")
+    .box(stor_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
+    .translate(((TOP_DIVIDER_DRY_X + MEETING_W / 2 - WALL) / 2 + WALL_INNER / 4, 0,
+                BASE_H + TOP_H - WALL - marker_h / 2 - 1))
+)
+show_object(stor_marker, name="zone_storage",
+            options={"color": (0.96, 0.49, 0.13, 0.85)})  # orange
 
 
 # =============================================================================
@@ -873,7 +1145,7 @@ _dry_left = DIVIDER_DRY_X + WALL_INNER / 2
 _dry_right = MEETING_W / 2 - WALL
 
 print("=" * 60)
-print("Somni Oil Diffuser V2.2 — Night City")
+print("Somni Oil Diffuser V2.3 — Night City")
 print("=" * 60)
 print()
 print("--- Enclosure ---")
@@ -883,15 +1155,15 @@ print(f"Top shell:   {TOP_W:.1f}x{TOP_D:.1f}mm (top)")
 print(f"Total:       {TOTAL_H}mm tall")
 print()
 print("--- Base Zones (left to right) ---")
-print(f"WET ZONE:    X={_wet_left:.1f} to {_wet_right}mm ({_wet_right - _wet_left:.0f}mm wide)")
+print(f"WET ZONE:    X={_wet_left:.1f} to {_wet_right}mm ({_wet_right - _wet_left:.0f}mm wide)  [TEAL]")
 print(f"  Reservoir: depth={RESERVOIR_DEPTH:.1f}mm")
 print(f"  Atomizer:  {ATOMIZER_MOUNT_DIA}mm at ({ATOMIZER_POS_X}, {ATOMIZER_POS_Y})")
 print()
-print(f"PUMP ROW:    X={_pump_left} to {_pump_right}mm ({_pump_right - _pump_left}mm wide)")
+print(f"PUMP ROW:    X={_pump_left} to {_pump_right}mm ({_pump_right - _pump_left}mm wide)  [AMBER]")
 print(f"  Pumps:     {PUMP_COUNT}x at Y={[f'{y:.0f}' for y in pump_y_positions]}")
 print(f"  Body:      {PUMP_BODY_W}x{PUMP_BODY_D}x{PUMP_BODY_H}mm each")
 print()
-print(f"DRY ZONE:    X={_dry_left:.1f} to {_dry_right:.1f}mm ({_dry_right - _dry_left:.0f}mm wide)")
+print(f"DRY ZONE:    X={_dry_left:.1f} to {_dry_right:.1f}mm ({_dry_right - _dry_left:.0f}mm wide)  [PURPLE]")
 print(f"  Bottles:   {BOTTLE_COUNT}x {BOTTLE_DIA}mm dia wells at X={BOTTLE_ROW_X:.1f}")
 print(f"             Y={[f'{y:.0f}' for y in bottle_y_positions]}")
 print(f"  ESP32:     {ESP32_W}x{ESP32_D}mm (rotated)")
@@ -900,11 +1172,20 @@ print(f"  PD trigger:{PD_TRIGGER_W}x{PD_TRIGGER_D}mm")
 print(f"  BME280:    {BME280_W}x{BME280_D}mm")
 print(f"  USB-C:     {USBC_PORT_W}x{USBC_PORT_H}mm (rear wall)")
 print()
-print("--- Top Shell (aesthetic lid) ---")
-print(f"Mist channel:{MIST_CHANNEL_DIA}mm bore at ({MIST_POS_X}, {MIST_POS_Y})")
-print(f"Fill port:   {FILL_PORT_DIA}mm dia at ({FILL_PORT_POS_X}, {FILL_PORT_POS_Y})")
-print(f"Exhaust:     {EXHAUST_W}x{EXHAUST_D}mm chevron, 3 vanes")
-print(f"Access:      LIFT TOP SHELL OFF — full access to everything")
+print("--- Top Shell Zones (left to right) ---")
+print(f"MIST+FILL:   above wet zone  [BLUE]")
+print(f"  Chimney:    {MIST_CHANNEL_DIA}mm bore at ({MIST_POS_X}, {MIST_POS_Y})")
+print(f"  Exhaust:    {EXHAUST_W}x{EXHAUST_D}mm chevron, 3 vanes")
+print(f"  Fill chute: {FILL_CHUTE_TOP_W}x{FILL_CHUTE_TOP_D}mm top → {FILL_CHUTE_BOT_W}x{FILL_CHUTE_BOT_D}mm bottom")
+print(f"  Fill pos:   ({FILL_CHUTE_POS_X}, {FILL_CHUTE_POS_Y}), lip {FILL_CHUTE_LIP_H}mm")
+print()
+print(f"TRANSIT:     above pump row  [TEAL]")
+print(f"  Structural gap, cable routing")
+print()
+print(f"STORAGE:     above dry zone  [ORANGE]")
+print(f"  Compartment for spare bottles, accessories, etc.")
+print(f"  Lid recess: {STORAGE_LID_RECESS}mm step for snap-fit dust cover")
+print(f"  Access:     LIFT TOP SHELL OFF — full access to everything")
 print()
 print("--- Connections ---")
 print(f"Magnets:     {len(magnet_positions)}x {MAGNET_DIA}mm dia x {MAGNET_H}mm")
