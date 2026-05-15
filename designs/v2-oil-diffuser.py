@@ -856,10 +856,10 @@ def build_electronics_tray():
     Lifts straight out for pump access. Left legs rest on divider wall
     ledge, right legs rest on the outer wall ledge.
 
-    Board layout (two rows side-by-side in X):
-      Left row:  ESP32 (28mm X x 55mm Y)
-      Right row: MOSFET (26mm X x 50mm Y), PD+Buck (24mm x 18mm),
-                 Atomizer driver (25mm x 35mm), BME280 (12mm x 15mm)
+    Board layout (two columns side-by-side in X):
+      Left col:  ESP32 (28mm X x 55mm Y) + BME280 (15mm X x 12mm Y)
+      Right col: MOSFET (26mm X x 50mm Y) + atomizer driver (25mm x 35mm, Z-stacked on MOSFET)
+                 + PD+Buck (24mm x 18mm, Z-stacked)
     """
 
     # Tray outer dimensions (fits inside center zone with clearance)
@@ -938,6 +938,11 @@ def build_electronics_tray():
         tray = tray.union(right_tab)
 
     # === BOARD POCKETS on tray floor ===
+    # V3.3 compact layout: boards redistributed across two columns to fit
+    # 78mm tray depth. Atomizer driver Z-stacks on MOSFET, BME280 moves
+    # to left column below ESP32.
+    #   Left col:  ESP32 (55mm) + 2mm gap + BME280 (12mm) = 69mm
+    #   Right col: MOSFET (50mm) + atm_drv Z-stacked + 2mm gap + PD/Buck (18mm) = 70mm
     _tray_y_min = tray_cy - tray_d / 2 + TRAY_WALL + 2
     _tray_y_max = tray_cy + tray_d / 2 - TRAY_WALL - 2
 
@@ -950,10 +955,11 @@ def build_electronics_tray():
     _left_col_x = tray_cx - tray_w / 2 + _col_offset + _left_col_w / 2
     _right_col_x = _left_col_x + _left_col_w / 2 + _gap + _right_col_w / 2
 
-    # Left column: ESP32 pocket
     _tray_floor_z = TRAY_Z + TRAY_FLOOR
-    y_cur = _tray_y_min
-    esp32_tray_y = y_cur + ESP32_W / 2
+
+    # --- Left column: ESP32 pocket ---
+    y_cur_l = _tray_y_min
+    esp32_tray_y = y_cur_l + ESP32_W / 2
     esp32_pocket = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z)
@@ -963,7 +969,7 @@ def build_electronics_tray():
     )
     tray = tray.cut(esp32_pocket)
 
-    # Rail slots for ESP32 on tray
+    # Rail slots for ESP32
     _esp_hw = (ESP32_D + 2) / 2
     for _rs in [-1, 1]:
         rail = (
@@ -976,19 +982,34 @@ def build_electronics_tray():
         )
         tray = tray.union(rail)
 
-    # Right column: MOSFET pocket
+    y_cur_l += ESP32_W + 2
+
+    # --- Left column: BME280 pocket ---
+    bme_tray_y = y_cur_l + BME280_D / 2
+    bme_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=_tray_floor_z)
+        .center(_left_col_x, bme_tray_y)
+        .rect(BME280_W + 2, BME280_D + 2)
+        .extrude(BME280_H + 1)
+    )
+    tray = tray.cut(bme_pocket)
+
+    # --- Right column: MOSFET pocket (atomizer driver Z-stacked on top) ---
     y_cur_r = _tray_y_min
     mosfet_tray_y = y_cur_r + MOSFET_BOARD_W / 2
+    # Pocket deep enough for MOSFET + atomizer driver stacked on top
+    _mosfet_stack_h = MOSFET_BOARD_H + ATOMIZER_DRIVER_H + 1
     mosfet_pocket = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z)
         .center(_right_col_x, mosfet_tray_y)
         .rect(MOSFET_BOARD_D + 2, MOSFET_BOARD_W + 2)
-        .extrude(MOSFET_BOARD_H + 1)
+        .extrude(_mosfet_stack_h)
     )
     tray = tray.cut(mosfet_pocket)
 
-    # Rail slots for MOSFET on tray
+    # Rail slots for MOSFET
     _mos_hw = (MOSFET_BOARD_D + 2) / 2
     for _rs in [-1, 1]:
         rail = (
@@ -1001,9 +1022,12 @@ def build_electronics_tray():
         )
         tray = tray.union(rail)
 
-    y_cur_r += MOSFET_BOARD_W + 3
+    # Atomizer driver sits on top of MOSFET (Z-stacked, centered on MOSFET Y)
+    atm_drv_tray_y = mosfet_tray_y  # same Y center as MOSFET
 
-    # Right column: PD trigger + Buck converter Z-stacked pocket
+    y_cur_r += MOSFET_BOARD_W + 2
+
+    # --- Right column: PD trigger + Buck converter Z-stacked pocket ---
     _pd_buck_w = max(PD_TRIGGER_W, BUCK_CONV_W)
     _pd_buck_d = max(PD_TRIGGER_D, BUCK_CONV_D)
     _pd_buck_h = BUCK_CONV_H + PD_TRIGGER_H + 2
@@ -1030,46 +1054,6 @@ def build_electronics_tray():
             .extrude(SNAP_NUB_W)
         )
         tray = tray.union(snap)
-
-    y_cur_r += _pd_buck_d + 3
-
-    # Right column: Atomizer driver pocket
-    atm_drv_tray_y = y_cur_r + ATOMIZER_DRIVER_W / 2
-    atm_drv_pocket = (
-        cq.Workplane("XY")
-        .workplane(offset=_tray_floor_z)
-        .center(_right_col_x, atm_drv_tray_y)
-        .rect(ATOMIZER_DRIVER_D + 2, ATOMIZER_DRIVER_W + 2)
-        .extrude(ATOMIZER_DRIVER_H + 1)
-    )
-    tray = tray.cut(atm_drv_pocket)
-
-    # Snap tabs for atomizer driver
-    _atm_hw = (ATOMIZER_DRIVER_D + 2) / 2
-    _atm_mid_z = _tray_floor_z + ATOMIZER_DRIVER_H / 2
-    for _ss in [-1, 1]:
-        snap = (
-            cq.Workplane("XY")
-            .workplane(offset=_atm_mid_z - SNAP_NUB_W / 2)
-            .center(_right_col_x + _ss * (_atm_hw - SNAP_NUB_H / 2),
-                    atm_drv_tray_y)
-            .rect(SNAP_NUB_H, SNAP_NUB_W)
-            .extrude(SNAP_NUB_W)
-        )
-        tray = tray.union(snap)
-
-    y_cur_r += ATOMIZER_DRIVER_W + 3
-
-    # Right column: BME280 pocket
-    bme_tray_y = y_cur_r + BME280_D / 2
-    bme_pocket = (
-        cq.Workplane("XY")
-        .workplane(offset=_tray_floor_z)
-        .center(_right_col_x, bme_tray_y)
-        .rect(BME280_W + 2, BME280_D + 2)
-        .extrude(BME280_H + 1)
-    )
-    tray = tray.cut(bme_pocket)
 
     # === Tray wire channels ===
     _tch_z = _tray_floor_z + CHANNEL_D / 2
@@ -1372,6 +1356,7 @@ def build_components():
     parts = {}
 
     # --- Recompute tray board positions (must match build_electronics_tray) ---
+    # V3.3 compact layout: BME280 in left col, atomizer driver Z-stacked on MOSFET
     _center_inner_left = DIVIDER_WET_X + WALL_INNER / 2 + TRAY_CLEARANCE
     _center_inner_right = MEETING_W / 2 - WALL - TRAY_CLEARANCE
     tray_w = _center_inner_right - _center_inner_left
@@ -1391,19 +1376,17 @@ def build_components():
     _left_col_x = tray_cx - tray_w / 2 + _col_offset + _left_col_w / 2
     _right_col_x = _left_col_x + _left_col_w / 2 + _gap + _right_col_w / 2
 
-    # Left column Y positions
+    # Left column: ESP32 + BME280
     esp32_tray_y = _tray_y_min + ESP32_W / 2
+    bme_tray_y = _tray_y_min + ESP32_W + 2 + BME280_D / 2
 
-    # Right column Y positions
+    # Right column: MOSFET (+ atm_drv Z-stacked) + PD/Buck
     _pd_buck_d = max(PD_TRIGGER_D, BUCK_CONV_D)
     y_cur_r = _tray_y_min
     mosfet_tray_y = y_cur_r + MOSFET_BOARD_W / 2
-    y_cur_r += MOSFET_BOARD_W + 3
+    atm_drv_tray_y = mosfet_tray_y  # Z-stacked on MOSFET, same Y center
+    y_cur_r += MOSFET_BOARD_W + 2
     pd_buck_tray_y = y_cur_r + _pd_buck_d / 2
-    y_cur_r += _pd_buck_d + 3
-    atm_drv_tray_y = y_cur_r + ATOMIZER_DRIVER_W / 2
-    y_cur_r += ATOMIZER_DRIVER_W + 3
-    bme_tray_y = y_cur_r + BME280_D / 2
 
     # =============================================
     # WET ZONE components
@@ -1489,21 +1472,21 @@ def build_components():
     )
     parts["pd_trigger"] = (pd_trigger, (0.7, 0.1, 0.1, 0.95))  # red PCB
 
-    # Atomizer driver board
+    # Atomizer driver board (Z-stacked on top of MOSFET)
     atomizer_driver = (
         cq.Workplane("XY")
-        .workplane(offset=_tray_floor_z + 0.5)
+        .workplane(offset=_tray_floor_z + 0.5 + MOSFET_BOARD_H)
         .center(_right_col_x, atm_drv_tray_y)
         .rect(ATOMIZER_DRIVER_D, ATOMIZER_DRIVER_W)
         .extrude(ATOMIZER_DRIVER_H)
     )
     parts["atomizer_driver"] = (atomizer_driver, (0.2, 0.6, 0.2, 0.95))  # green PCB
 
-    # BME280 sensor
+    # BME280 sensor (left column, below ESP32)
     bme280 = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z + 0.5)
-        .center(_right_col_x, bme_tray_y)
+        .center(_left_col_x, bme_tray_y)
         .rect(BME280_W, BME280_D)
         .extrude(BME280_H)
     )
