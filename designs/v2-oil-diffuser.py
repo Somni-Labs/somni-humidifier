@@ -1,11 +1,11 @@
 """
-Somni Oil Diffuser — V3.2 "Night City"
+Somni Oil Diffuser — V3.3 "Compact Grid"
 
 Cyberpunk-styled essential oil diffuser with automated scent blending.
-160x160mm square footprint (fits QIDI Q2 245x255mm bed).
+130x104mm rectangular footprint (fits QIDI Q2 245x255mm bed).
 
 REAL-WORLD BOM — all component dimensions verified from sourcing research:
-  Pumps:     5× JIHPUMP WX3 micro peristaltic (23×35×25mm, 3.7-6V)
+  Pumps:     5× JIHPUMP WX3 micro peristaltic (23×35×25mm, 3.7-6V) in 2+3 pump grid
   Atomizer:  20mm/113KHz piezo + 35×25mm driver board (5V, 250-400mA)
   MCU:       ESP32 DevKit (55×28mm) — WiFi, 6× GPIO for MOSFETs
   MOSFETs:   8-ch MOSFET driver board (50×26mm, 3.3V logic-level, using 6 ch)
@@ -19,16 +19,16 @@ Three-part enclosure connected via magnets:
   TRAY  — lift-out electronics shelf, sits above pumps in center zone
   SHELL — two-zone functional lid: fill chute + mist chimney, bottles + storage
 
-Bottles hang cap-down from the top shell ceiling. Lift top shell off for access.
+Bottles hang cap-down from the top shell ceiling in a 3+2 bottle grid. Lift top shell off for access.
 Electronics tray lifts out for pump access (building Legos assembly).
 
 Base layout (two zones, left to right):
   WET ZONE    (left)    — water reservoir + atomizer mount
-  CENTER ZONE (right)   — two levels: pumps (bottom) + electronics tray (top)
+  CENTER ZONE (right)   — two levels: 2+3 pump grid (bottom) + electronics tray (top)
 
 Top shell layout (two zones, matching base divider):
   MIST+FILL        (left)   — mist chimney + chevron exhaust + water fill chute
-  BOTTLES+STORAGE  (right)  — 5 bottle wells (ceiling) + open storage below
+  BOTTLES+STORAGE  (right)  — 5 bottle wells in 3+2 bottle grid (ceiling) + open storage below
 
 Power architecture: 5V single-rail (all loads are 5V)
   USB-C PD (12V) → buck converter → 5V rail
@@ -52,8 +52,8 @@ WALL_INNER = 2.5         # internal divider walls
 FILLET_R = 1.5            # small edge breaks
 
 # --- Overall form factor ---
-BASE_W = 160             # base footprint width (X) at Z=0 — square
-BASE_D = 160             # base footprint depth (Y) at Z=0
+BASE_W = 130             # base footprint width (X) at Z=0 — rectangular
+BASE_D = 104             # base footprint depth (Y) at Z=0
 BASE_H = 70              # base height (Z)
 TOP_H = 60               # top shell height (Z)
 TOTAL_H = BASE_H + TOP_H # 130mm assembled
@@ -81,7 +81,7 @@ FLOOR_H = 3.0
 # One divider wall runs parallel to Y axis, creating two zones.
 # Wet zone: X < DIVIDER_WET_X — water reservoir + atomizer
 # Center zone: X > DIVIDER_WET_X — two-level: pumps + electronics tray
-DIVIDER_WET_X = -17      # left divider (wet/center boundary)
+DIVIDER_WET_X = -21.8    # left divider (wet/center boundary)
 
 # --- Water reservoir (wet zone) ---
 RESERVOIR_DEPTH = BASE_H - FLOOR_H - WALL
@@ -90,33 +90,33 @@ RESERVOIR_DEPTH = BASE_H - FLOOR_H - WALL
 ATOMIZER_DIA = 20
 ATOMIZER_DRIVER_W = 35
 ATOMIZER_DRIVER_D = 25
-ATOMIZER_MOUNT_DIA = 26
-ATOMIZER_POS_X = -55         # well into wet zone (left side)
+ATOMIZER_MOUNT_DIA = 24  # 20mm piezo + 2mm rim each side
+ATOMIZER_POS_X = -38.1       # centered in narrower wet zone
 ATOMIZER_POS_Y = 0           # centered front-to-back
 
-# --- Peristaltic pumps (5x JIHPUMP WX3 micro, in center zone lower level) ---
+# --- Peristaltic pumps (5x JIHPUMP WX3 micro, 2+3 grid in center zone) ---
 PUMP_BODY_W = 35             # WX3 length oriented along X
 PUMP_BODY_D = 23             # WX3 width oriented along Y
 PUMP_BODY_H = 25             # WX3 height
-PUMP_COUNT = 5
-PUMP_SPACING = 26            # center-to-center along Y axis
-# Pumps centered in center zone (no right boundary — outer wall is the edge)
-PUMP_CENTER_X = (DIVIDER_WET_X + MEETING_W / 2 - WALL) / 2
+PUMP_LEFT_COL_COUNT = 2      # near divider
+PUMP_RIGHT_COL_COUNT = 3     # near outer wall
+PUMP_TOTAL = PUMP_LEFT_COL_COUNT + PUMP_RIGHT_COL_COUNT
+PUMP_COL_GAP = 3             # gap between columns (X)
+PUMP_ROW_GAP = 3             # gap between pumps in same column (Y)
 
-# --- Bottle wells (top shell) ---
+# --- Bottle wells (top shell, 3+2 grid) ---
 # Bottles hang cap-down from the top shell ceiling in the right zone.
 # Wells are recessed 3mm into the ceiling with retaining rings.
 BOTTLE_DIA = 22
 BOTTLE_CAP_DIA = 18
 BOTTLE_HEIGHT = 55
-BOTTLE_COUNT = 5
+BOTTLE_LEFT_ROW_COUNT = 3    # near divider (row 1)
+BOTTLE_RIGHT_ROW_COUNT = 2   # near outer wall (row 2)
+BOTTLE_TOTAL = BOTTLE_LEFT_ROW_COUNT + BOTTLE_RIGHT_ROW_COUNT
 BOTTLE_WELL_DEPTH = 3        # recess into ceiling
 BOTTLE_WELL_DIA = 22 + 2 * 0.4 + 2  # 24.8mm
-BOTTLE_SPACING = 26
-# Bottles centered in the right zone of the top shell
-BOTTLE_ROW_X_TOP = (DIVIDER_WET_X + WALL_INNER / 2 + MEETING_W / 2 - WALL) / 2
-bottle_y_positions = [-(BOTTLE_COUNT - 1) / 2 * BOTTLE_SPACING + i * BOTTLE_SPACING
-                       for i in range(BOTTLE_COUNT)]
+BOTTLE_ROW_GAP = 2           # gap between rows (X)
+BOTTLE_Y_SPACING = BOTTLE_WELL_DIA + 2.5  # center-to-center in Y within a row
 
 # --- Electronics (on lift-out tray in center zone upper level) ---
 ESP32_W = 55                 # ESP32 DevKit V1 long dimension (along Y on tray)
@@ -175,6 +175,12 @@ WIRE_PORT_W = 5.0
 WIRE_PORT_H = 4.0
 WIRE_PORT_Z = FLOOR_H + 1
 
+# --- Tubing channels (base floor) ---
+TUBE_CHANNEL_W = 4           # collector channel width
+TUBE_CHANNEL_D = 3           # collector channel depth
+TUBE_SPUR_W = 3              # spur from pump to collector
+TUBE_HOLE_DIA = 6            # pass-through hole in divider
+
 # --- Capacitive touch buttons ---
 TOUCH_BTN_W = 15
 TOUCH_BTN_D = 11
@@ -191,30 +197,30 @@ USBC_PORT_H = 7
 # --- Rubber feet ---
 FOOT_DIA = 12
 FOOT_DEPTH = 1.8
-FOOT_INSET = 20
+FOOT_INSET = 15
 
 # --- Magnet pockets ---
 MAGNET_DIA = 6
 MAGNET_H = 3
-MAGNET_INSET = 30
+MAGNET_INSET = 20
 
 # --- Alignment pins ---
 PIN_DIA = 4
 PIN_H = 6
 
 # --- Mist channel (top shell) ---
-MIST_CHANNEL_DIA = 30
+MIST_CHANNEL_DIA = 25
 MIST_CHANNEL_WALL = 2.5
 MIST_POS_X = ATOMIZER_POS_X
 MIST_POS_Y = ATOMIZER_POS_Y
 
 # --- Water fill chute (top shell, left zone) ---
-FILL_CHUTE_TOP_W = 35
-FILL_CHUTE_TOP_D = 40
-FILL_CHUTE_BOT_W = 18
-FILL_CHUTE_BOT_D = 25
+FILL_CHUTE_TOP_W = 25
+FILL_CHUTE_TOP_D = 30
+FILL_CHUTE_BOT_W = 14
+FILL_CHUTE_BOT_D = 20
 FILL_CHUTE_POS_X = ATOMIZER_POS_X
-FILL_CHUTE_POS_Y = 45
+FILL_CHUTE_POS_Y = 30
 FILL_CHUTE_LIP_H = 3
 
 # --- Top shell zone divider ---
@@ -225,8 +231,8 @@ STORAGE_LID_RECESS = 2.0
 STORAGE_WALL = 2.0
 
 # --- Exhaust port ---
-EXHAUST_W = 40
-EXHAUST_D = 25
+EXHAUST_W = 30
+EXHAUST_D = 20
 EXHAUST_POS_X = MIST_POS_X
 EXHAUST_POS_Y = MIST_POS_Y
 
