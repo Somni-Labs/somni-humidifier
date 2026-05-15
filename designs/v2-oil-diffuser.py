@@ -234,6 +234,72 @@ def panel_line_cut(body, z_height, total_height, w_bottom, d_bottom, w_top, d_to
     return body.cut(groove)
 
 
+def hex_mesh_cutout(width, height, cell_size, wall_thickness, margin):
+    """Generate a honeycomb pattern of hexagonal prisms as a single CadQuery solid.
+
+    Pointy-top hex orientation (support-free vertical printing).
+    Returns a solid block of hex cells extruded 100mm along Z (deep enough
+    to cut through any wall).
+
+    Parameters:
+        width:          panel width (X extent)
+        height:         panel height (Y extent)
+        cell_size:      flat-to-flat distance of each hex cell
+        wall_thickness: wall between adjacent hex cells
+        margin:         inset from panel edges before hex pattern starts
+    """
+    pitch = cell_size + wall_thickness
+    row_height = pitch * math.sqrt(3) / 2
+    hex_radius = cell_size / 2
+
+    usable_w = width - 2 * margin
+    usable_h = height - 2 * margin
+
+    cols = int(usable_w / pitch) + 1
+    rows = int(usable_h / row_height) + 1
+
+    cells = None
+    cell_count = 0
+
+    for row in range(rows):
+        for col in range(cols):
+            cx = -usable_w / 2 + col * pitch + (pitch / 2 if row % 2 else 0)
+            cy = -usable_h / 2 + row * row_height
+
+            # Skip cells outside the usable area
+            if abs(cx) > usable_w / 2 - hex_radius or abs(cy) > usable_h / 2 - hex_radius:
+                continue
+
+            # Build a pointy-top hexagon from 6 vertices
+            pts = []
+            for i in range(6):
+                angle = math.radians(60 * i + 30)
+                pts.append((
+                    cx + hex_radius * math.cos(angle),
+                    cy + hex_radius * math.sin(angle),
+                ))
+
+            hex_cell = (
+                cq.Workplane("XY")
+                .moveTo(pts[0][0], pts[0][1])
+                .polyline(pts[1:])
+                .close()
+                .extrude(100)
+            )
+
+            if cells is None:
+                cells = hex_cell
+            else:
+                cells = cells.union(hex_cell)
+            cell_count += 1
+
+    # If no cells fit, return a tiny box to avoid empty solid errors
+    if cells is None:
+        cells = cq.Workplane("XY").box(0.1, 0.1, 0.1)
+
+    return cells
+
+
 # =============================================================================
 # BUILD FUNCTIONS
 # =============================================================================
