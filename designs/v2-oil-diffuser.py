@@ -626,21 +626,62 @@ def build_base():
         base = base.union(pin)
 
     # --- SOMNI LABS branding (rear panel, +Y wall) ---
-    # Two-line debossed text: "SOMNI" large, "LABS" smaller below.
-    # Centered on the rear face, positioned below the panel line.
-    brand_z = BASE_H * 0.30  # vertical center of branding block
+    # Layout: [logo icon] SOMNI / LABS
+    # The logo icon is the simplified "eye" from the Somni Labs SVG:
+    # concentric ring + filled center dot, debossed into the rear panel.
+    # Text sits to the right of the icon.
+    brand_z = BASE_H * 0.30
+    # Logo icon — concentric circles (the "eye" mark)
+    logo_x = -18   # icon center, left of text
+    logo_r_outer = 6.0   # outer ring radius
+    logo_r_inner = 4.0   # inner ring radius (creates the ring)
+    logo_r_dot = 2.5     # filled center dot radius
+
+    # Deboss the outer ring
+    ring_outer = (
+        cq.Workplane("XZ")
+        .workplane(offset=BASE_D / 2)
+        .center(logo_x, brand_z)
+        .circle(logo_r_outer)
+        .circle(logo_r_inner)
+        .extrude(-BRAND_DEPTH)
+    )
+    base = base.cut(ring_outer)
+
+    # Deboss the center dot
+    dot = (
+        cq.Workplane("XZ")
+        .workplane(offset=BASE_D / 2)
+        .center(logo_x, brand_z)
+        .circle(logo_r_dot)
+        .extrude(-BRAND_DEPTH)
+    )
+    base = base.cut(dot)
+
+    # Second concentric ring (slightly larger, thinner — the outer "wave" hint)
+    ring_outer2 = (
+        cq.Workplane("XZ")
+        .workplane(offset=BASE_D / 2)
+        .center(logo_x, brand_z)
+        .circle(logo_r_outer + 2.5)
+        .circle(logo_r_outer + 1.5)
+        .extrude(-BRAND_DEPTH * 0.7)
+    )
+    base = base.cut(ring_outer2)
+
+    # Text: "SOMNI" and "LABS" to the right of the icon
     try:
         brand_main = (
             cq.Workplane("XZ")
             .workplane(offset=BASE_D / 2)
-            .center(0, brand_z + 4)
+            .center(8, brand_z + 4)
             .text("SOMNI", BRAND_FONT_SIZE, -BRAND_DEPTH, font="sans-serif")
         )
         base = base.cut(brand_main)
         brand_sub = (
             cq.Workplane("XZ")
             .workplane(offset=BASE_D / 2)
-            .center(0, brand_z - 6)
+            .center(8, brand_z - 6)
             .text("LABS", BRAND_SUB_SIZE, -BRAND_DEPTH, font="sans-serif")
         )
         base = base.cut(brand_sub)
@@ -649,8 +690,8 @@ def build_base():
         brand_recess = (
             cq.Workplane("XY")
             .workplane(offset=brand_z)
-            .center(0, BASE_D / 2)
-            .rect(50, 16)
+            .center(8, BASE_D / 2)
+            .rect(45, 16)
             .extrude(-BRAND_DEPTH)
         )
         base = base.cut(brand_recess)
