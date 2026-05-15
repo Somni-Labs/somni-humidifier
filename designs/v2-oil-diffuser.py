@@ -614,6 +614,19 @@ def build_base():
         )
         base = base.union(rail)
 
+    # Snap tabs for buck converter (lower board in the Z-stack)
+    _buck_mid_z = FLOOR_H + BUCK_CONV_H / 2
+    for _snap_side in [-1, 1]:
+        snap = (
+            cq.Workplane("XY")
+            .workplane(offset=_buck_mid_z - SNAP_NUB_W / 2)
+            .center(elec_col_x + _snap_side * (_pdb_pocket_hw - SNAP_NUB_H / 2),
+                    pd_buck_y)
+            .rect(SNAP_NUB_H, SNAP_NUB_W)
+            .extrude(SNAP_NUB_W)
+        )
+        base = base.union(snap)
+
     y_cursor += _pd_buck_d + 3
 
     # 8-channel MOSFET board (50×26mm, long dim along Y, short dim across X)
@@ -684,6 +697,20 @@ def build_base():
         .extrude(8)
     )
     base = base.cut(atm_driver_pocket)
+
+    # Snap tabs for atomizer driver board
+    _atm_pocket_hw = (ATOMIZER_DRIVER_W + 2) / 2  # pocket has +2 tolerance
+    _atm_mid_z = FLOOR_H + 3  # mid-height of 6mm pocket
+    for _snap_side in [-1, 1]:
+        snap = (
+            cq.Workplane("XY")
+            .workplane(offset=_atm_mid_z - SNAP_NUB_W / 2)
+            .center(_atm_drv_x + _snap_side * (_atm_pocket_hw - SNAP_NUB_H / 2),
+                    _atm_drv_y)
+            .rect(SNAP_NUB_H, SNAP_NUB_W)
+            .extrude(SNAP_NUB_W)
+        )
+        base = base.union(snap)
 
     # --- USB-C port cutout (rear wall, aligned with electronics column) ---
     usbc_cutout = (
