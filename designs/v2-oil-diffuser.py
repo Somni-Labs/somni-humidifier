@@ -1666,10 +1666,11 @@ show_object(wet_marker, name="zone_wet",
 
 # Base center zone marker (amber)
 center_marker_w = (MEETING_W / 2 - WALL) - DIVIDER_WET_X - WALL_INNER / 2
+_center_cx = (DIVIDER_WET_X + WALL_INNER / 2 + MEETING_W / 2 - WALL) / 2
 center_marker = (
     cq.Workplane("XY")
     .box(center_marker_w - 2, MEETING_D - WALL * 2 - 8, marker_h)
-    .translate((PUMP_CENTER_X, 0, FLOOR_H + marker_h / 2))
+    .translate((_center_cx, 0, FLOOR_H + marker_h / 2))
 )
 show_object(center_marker, name="zone_center",
             options={"color": (0.92, 0.69, 0.13, 0.85)})  # amber
