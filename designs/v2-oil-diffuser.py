@@ -117,17 +117,43 @@ PIN_DIA = 4                  # locating pin diameter
 PIN_H = 6                    # pin protrusion height
 PIN_COUNT = 4                # one per side
 
-# --- Oil bottle wells (top shell) ---
-BOTTLE_DIA = 22              # 5ml essential oil bottle diameter
-BOTTLE_WELL_DIA = 25         # well diameter (bottle + clearance)
-BOTTLE_WELL_DEPTH = 45       # well depth (bottle mostly contained)
+# --- Oil bottle receivers (top shell) ---
+# Bottles screw UP into threaded receivers (like screwing on a cap).
+# Each receiver has a tube pre-routed through it that dips into the bottle.
+# Arranged in a tight 2+3 cluster (2 rear, 3 front) to save space.
+BOTTLE_DIA = 22              # 5ml essential oil bottle body diameter
+BOTTLE_NECK_OD = 18          # bottle neck outer diameter (18-415 thread)
+BOTTLE_HEIGHT = 55           # bottle total height
 BOTTLE_COUNT = 5
-BOTTLE_SPACING = 28          # center-to-center
-BOTTLE_ROW_Y = 30            # Y offset of bottle row center (toward front)
+
+# Threaded receiver dimensions
+RECEIVER_OD = BOTTLE_NECK_OD + 2 * WALL_INNER  # outer diameter of printed receiver
+RECEIVER_THREAD_ID = BOTTLE_NECK_OD + 2 * TOL   # inner bore (threads printed, bottle screws in)
+RECEIVER_LENGTH = 13         # receiver body length (neck engagement + margin)
+TUBE_BORE_DIA = 3            # bore through receiver center for silicone tube
+
+# Receiver positions — 2+3 quincunx cluster, compact arrangement.
+# Positioned in the upper portion of the top shell interior.
+# Row spacing is just enough for bottle bodies not to touch.
+_cluster_row_gap = BOTTLE_DIA + 4      # ~26mm front-to-back between row centers
+_cluster_col_gap = BOTTLE_DIA + 4      # ~26mm side-to-side between centers
+RECEIVER_POSITIONS = [
+    # Back row (2 bottles)
+    (-_cluster_col_gap / 2,  _cluster_row_gap / 2),
+    ( _cluster_col_gap / 2,  _cluster_row_gap / 2),
+    # Front row (3 bottles)
+    (-_cluster_col_gap,     -_cluster_row_gap / 2),
+    ( 0,                    -_cluster_row_gap / 2),
+    ( _cluster_col_gap,     -_cluster_row_gap / 2),
+]
+# Cluster center offset in the top shell (toward the front-right area,
+# away from mist channel and fill port which are on the left side)
+CLUSTER_CENTER_X = 25
+CLUSTER_CENTER_Y = 15
 
 # --- Tube pass-throughs (base/shell interface) ---
 TUBE_HOLE_DIA = 5            # hole for silicone tube + grommet
-# One per bottle, positioned near each bottle well
+# One per bottle, positioned near each receiver
 
 # --- Mist channel (top shell, internal chimney) ---
 MIST_CHANNEL_DIA = 30        # internal chimney diameter
@@ -553,31 +579,59 @@ def build_top_shell():
 
     shell = shell.cut(cavity)
 
-    # --- Bottle wells (5x, cut from top surface) ---
-    bottle_y_start = -(BOTTLE_COUNT - 1) / 2 * BOTTLE_SPACING
-    for i in range(BOTTLE_COUNT):
-        bx = bottle_y_start + i * BOTTLE_SPACING  # spread along X axis
-        by = BOTTLE_ROW_Y
+    # --- Bottle receivers (5x, 2+3 quincunx cluster) ---
+    # Receivers are mounted near the top of the shell interior.
+    # Bottles screw up into them from below; the bottle body hangs down.
+    # The receiver Z position leaves room above for tubing connections
+    # and below for the bottle body (~55mm).
+    receiver_top_z = TOP_H - WALL - 3   # receivers sit just below the ceiling
+    receiver_bottom_z = receiver_top_z - RECEIVER_LENGTH
 
-        # Main well — cylindrical pocket from top surface downward
-        well = (
-            cq.Workplane("XY")
-            .workplane(offset=TOP_H - BOTTLE_WELL_DEPTH)
-            .center(bx, by)
-            .circle(BOTTLE_WELL_DIA / 2)
-            .extrude(BOTTLE_WELL_DEPTH + 0.1)
-        )
-        shell = shell.cut(well)
+    for rx, ry in RECEIVER_POSITIONS:
+        bx = rx + CLUSTER_CENTER_X
+        by = ry + CLUSTER_CENTER_Y
 
-        # Tube pass-through hole at the bottom of each well
-        tube_hole = (
+        # Receiver body — solid cylinder (will be unioned into the shell interior)
+        receiver = (
             cq.Workplane("XY")
-            .workplane(offset=-0.1)
+            .workplane(offset=receiver_bottom_z)
             .center(bx, by)
-            .circle(TUBE_HOLE_DIA / 2)
-            .extrude(TOP_H - BOTTLE_WELL_DEPTH + 1)
+            .circle(RECEIVER_OD / 2)
+            .extrude(RECEIVER_LENGTH)
         )
-        shell = shell.cut(tube_hole)
+        shell = shell.union(receiver)
+
+        # Thread bore — hollow center where the bottle neck screws in
+        thread_bore = (
+            cq.Workplane("XY")
+            .workplane(offset=receiver_bottom_z - 0.5)
+            .center(bx, by)
+            .circle(RECEIVER_THREAD_ID / 2)
+            .extrude(RECEIVER_LENGTH + 1)
+        )
+        shell = shell.cut(thread_bore)
+
+        # Tube bore — small hole through the center of the receiver
+        # and up through the shell ceiling for tube routing
+        tube_bore = (
+            cq.Workplane("XY")
+            .workplane(offset=receiver_bottom_z - 0.5)
+            .center(bx, by)
+            .circle(TUBE_BORE_DIA / 2)
+            .extrude(TOP_H - receiver_bottom_z + 1)
+        )
+        shell = shell.cut(tube_bore)
+
+        # Clearance hole below receiver for bottle body to hang
+        # (cuts through the shell floor so bottles can be accessed from below)
+        bottle_clearance = (
+            cq.Workplane("XY")
+            .workplane(offset=-0.5)
+            .center(bx, by)
+            .circle(BOTTLE_DIA / 2 + TOL)
+            .extrude(receiver_bottom_z + 1)
+        )
+        shell = shell.cut(bottle_clearance)
 
     # --- Mist channel (internal chimney) ---
     # Outer chimney wall
@@ -764,8 +818,8 @@ print(f"LED channel: {LED_CHANNEL_W}x{LED_CHANNEL_D}mm (behind hex mesh)")
 print(f"Feet:        4x {FOOT_DIA}mm dia, {FOOT_DEPTH}mm deep, {FOOT_INSET}mm inset")
 print()
 print("--- Top Shell ---")
-print(f"Bottles:     {BOTTLE_COUNT}x wells {BOTTLE_WELL_DIA}mm dia, {BOTTLE_WELL_DEPTH}mm deep, {BOTTLE_SPACING}mm spacing")
-print(f"Tube holes:  {TUBE_HOLE_DIA}mm through-holes per bottle")
+print(f"Bottles:     {BOTTLE_COUNT}x threaded receivers (2+3 cluster), OD {RECEIVER_OD:.0f}mm, thread ID {RECEIVER_THREAD_ID:.1f}mm")
+print(f"             Cluster center at ({CLUSTER_CENTER_X}, {CLUSTER_CENTER_Y}), tube bore {TUBE_BORE_DIA}mm")
 print(f"Mist channel:{MIST_CHANNEL_DIA}mm bore + {MIST_CHANNEL_WALL}mm wall at ({MIST_POS_X}, {MIST_POS_Y})")
 print(f"Fill port:   {FILL_PORT_DIA}mm dia at ({FILL_PORT_POS_X}, {FILL_PORT_POS_Y})")
 print(f"Exhaust:     {EXHAUST_W}x{EXHAUST_D}mm chevron, 3 vanes")
