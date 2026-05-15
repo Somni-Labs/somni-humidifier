@@ -533,6 +533,96 @@ def build_top_shell():
 
     shell = shell.cut(cavity)
 
+    # --- Bottle wells (5x, cut from top surface) ---
+    bottle_y_start = -(BOTTLE_COUNT - 1) / 2 * BOTTLE_SPACING
+    for i in range(BOTTLE_COUNT):
+        bx = bottle_y_start + i * BOTTLE_SPACING  # spread along X axis
+        by = BOTTLE_ROW_Y
+
+        # Main well — cylindrical pocket from top surface downward
+        well = (
+            cq.Workplane("XY")
+            .workplane(offset=TOP_H - BOTTLE_WELL_DEPTH)
+            .center(bx, by)
+            .circle(BOTTLE_WELL_DIA / 2)
+            .extrude(BOTTLE_WELL_DEPTH + 0.1)
+        )
+        shell = shell.cut(well)
+
+        # Tube pass-through hole at the bottom of each well
+        tube_hole = (
+            cq.Workplane("XY")
+            .workplane(offset=-0.1)
+            .center(bx, by)
+            .circle(TUBE_HOLE_DIA / 2)
+            .extrude(TOP_H - BOTTLE_WELL_DEPTH + 1)
+        )
+        shell = shell.cut(tube_hole)
+
+    # --- Mist channel (internal chimney) ---
+    # Outer chimney wall
+    chimney_outer = (
+        cq.Workplane("XY")
+        .workplane(offset=WALL)
+        .center(MIST_POS_X, MIST_POS_Y)
+        .circle(MIST_CHANNEL_DIA / 2 + MIST_CHANNEL_WALL)
+        .extrude(TOP_H - WALL * 2)
+    )
+    shell = shell.union(chimney_outer)
+
+    # Bore through the chimney (all the way through)
+    chimney_bore = (
+        cq.Workplane("XY")
+        .workplane(offset=-0.1)
+        .center(MIST_POS_X, MIST_POS_Y)
+        .circle(MIST_CHANNEL_DIA / 2)
+        .extrude(TOP_H + 0.2)
+    )
+    shell = shell.cut(chimney_bore)
+
+    # --- Water fill port (top surface) ---
+    fill_hole = (
+        cq.Workplane("XY")
+        .workplane(offset=TOP_H - WALL - 0.1)
+        .center(FILL_PORT_POS_X, FILL_PORT_POS_Y)
+        .circle(FILL_PORT_DIA / 2)
+        .extrude(WALL + 0.2)
+    )
+    shell = shell.cut(fill_hole)
+
+    # Fill port lip/rim (2mm wider ring, 1.5mm tall)
+    fill_lip = (
+        cq.Workplane("XY")
+        .workplane(offset=TOP_H)
+        .center(FILL_PORT_POS_X, FILL_PORT_POS_Y)
+        .circle(FILL_PORT_DIA / 2 + 2)
+        .circle(FILL_PORT_DIA / 2)
+        .extrude(1.5)
+    )
+    shell = shell.union(fill_lip)
+
+    # --- Matching magnet pockets (bottom of top shell floor) ---
+    for mx, my in magnet_positions:
+        magnet_pocket = (
+            cq.Workplane("XY")
+            .workplane(offset=-0.1)
+            .center(mx, my)
+            .circle((MAGNET_DIA + TOL * 2) / 2)
+            .extrude(MAGNET_H + 0.1)
+        )
+        shell = shell.cut(magnet_pocket)
+
+    # --- Matching pin holes (bottom of top shell) ---
+    for px, py in pin_positions:
+        pin_hole = (
+            cq.Workplane("XY")
+            .workplane(offset=-0.1)
+            .center(px, py)
+            .circle((PIN_DIA + TOL * 2) / 2)
+            .extrude(PIN_H + WALL + 0.1)
+        )
+        shell = shell.cut(pin_hole)
+
     return shell
 
 
