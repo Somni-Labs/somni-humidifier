@@ -917,7 +917,7 @@ def build_electronics_tray():
         tray = tray.union(leg)
 
     # Registration tabs (left side into divider wall, right side into outer wall)
-    _tab_y_positions = [interior_y_min + 20, interior_y_max - 20]
+    _tab_y_positions = [interior_y_min + 15, interior_y_max - 15]
     for tab_y in _tab_y_positions:
         # Left side tab
         left_tab = (
