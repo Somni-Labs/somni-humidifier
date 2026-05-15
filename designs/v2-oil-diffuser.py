@@ -836,34 +836,46 @@ def build_top_shell():
 
     # --- Bottle access hatch (right side, +X wall) ---
     # Large opening: 130mm wide x 50mm tall — nearly the full right wall.
+    # The wall tapers inward, so the outer surface X varies with Z.
+    # Use the widest position (bottom of hatch) and make the cut thick
+    # enough to punch through the wall at every height.
     hatch_z_bottom = WALL + 2
-    hatch_z_center = hatch_z_bottom + HATCH_H / 2
-    t_hatch = hatch_z_center / TOP_H
-    wall_x_at_hatch = (MEETING_W + t_hatch * (TOP_W - MEETING_W)) / 2
+    # Wall X at bottom of hatch (widest point, outer surface)
+    t_bottom = hatch_z_bottom / TOP_H
+    wall_x_bottom = (MEETING_W + t_bottom * (TOP_W - MEETING_W)) / 2
+    # Wall X at top of hatch (narrowest, inner edge after taper)
+    t_top = (hatch_z_bottom + HATCH_H) / TOP_H
+    wall_x_top = (MEETING_W + t_top * (TOP_W - MEETING_W)) / 2
+    # Cut must span from inside the inner wall to outside the outer wall
+    # at the widest point. Use wall_x_bottom (outer) as the right edge
+    # and cut deep enough to clear the interior.
+    hatch_cut_thickness = WALL + 6  # generous: 9mm thick cut
+    hatch_cut_center_x = wall_x_bottom  # align with outer wall at bottom
 
     hatch_cut = (
         cq.Workplane("XY")
         .workplane(offset=hatch_z_bottom)
-        .center(wall_x_at_hatch, 0)
-        .rect(WALL + 2, HATCH_W)
+        .center(hatch_cut_center_x, 0)
+        .rect(hatch_cut_thickness, HATCH_W)
         .extrude(HATCH_H)
     )
     shell = shell.cut(hatch_cut)
 
-    # Hatch lip/frame
+    # Hatch lip/frame — thin frame on the inside of the opening
     lip_thickness = 1.5
-    lip_depth = 2.0
+    lip_depth = 2.5
+    lip_x = wall_x_top - WALL  # inside the wall at the narrow end
     hatch_lip_outer = (
         cq.Workplane("XY")
         .workplane(offset=hatch_z_bottom - lip_thickness)
-        .center(wall_x_at_hatch - WALL, 0)
+        .center(lip_x, 0)
         .rect(lip_depth, HATCH_W + lip_thickness * 2)
         .extrude(HATCH_H + lip_thickness * 2)
     )
     hatch_lip_inner = (
         cq.Workplane("XY")
         .workplane(offset=hatch_z_bottom - 0.1)
-        .center(wall_x_at_hatch - WALL, 0)
+        .center(lip_x, 0)
         .rect(lip_depth + 0.2, HATCH_W)
         .extrude(HATCH_H + 0.2)
     )
