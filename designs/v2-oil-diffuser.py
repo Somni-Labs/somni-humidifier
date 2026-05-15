@@ -623,6 +623,80 @@ def build_top_shell():
         )
         shell = shell.cut(pin_hole)
 
+    # --- Chevron exhaust port (top surface, above mist channel) ---
+    # Diamond/chevron shape from 4 points: top, right, bottom, left
+    exhaust_pts = [
+        (EXHAUST_POS_X, EXHAUST_POS_Y + EXHAUST_D / 2),   # top
+        (EXHAUST_POS_X + EXHAUST_W / 2, EXHAUST_POS_Y),   # right
+        (EXHAUST_POS_X, EXHAUST_POS_Y - EXHAUST_D / 2),   # bottom
+        (EXHAUST_POS_X - EXHAUST_W / 2, EXHAUST_POS_Y),   # left
+    ]
+    exhaust_cut = (
+        cq.Workplane("XY")
+        .workplane(offset=TOP_H - WALL - 0.1)
+        .moveTo(exhaust_pts[0][0], exhaust_pts[0][1])
+        .lineTo(exhaust_pts[1][0], exhaust_pts[1][1])
+        .lineTo(exhaust_pts[2][0], exhaust_pts[2][1])
+        .lineTo(exhaust_pts[3][0], exhaust_pts[3][1])
+        .close()
+        .extrude(WALL + 0.2)
+    )
+    shell = shell.cut(exhaust_cut)
+
+    # 3 thin internal vanes (1.2mm thick) spaced evenly across the diamond
+    vane_thickness = 1.2
+    for v in range(3):
+        vane_offset = -EXHAUST_D / 4 + v * (EXHAUST_D / 4)
+        vy = EXHAUST_POS_Y + vane_offset
+        # Width of diamond at this Y offset
+        t_vane = 1.0 - abs(vane_offset) / (EXHAUST_D / 2)
+        vane_half_w = (EXHAUST_W / 2) * t_vane
+        if vane_half_w < 2:
+            continue
+        vane = (
+            cq.Workplane("XY")
+            .workplane(offset=TOP_H - WALL)
+            .center(EXHAUST_POS_X, vy)
+            .rect(vane_half_w * 2, vane_thickness)
+            .extrude(WALL)
+        )
+        shell = shell.union(vane)
+
+    # --- Bottle access hatch (front face, -Y wall) ---
+    # Rectangular opening centered on the front wall
+    hatch_z_center = TOP_H / 2
+    hatch_cut = (
+        cq.Workplane("XY")
+        .workplane(offset=hatch_z_center - HATCH_H / 2)
+        .center(0, -MEETING_D / 2)
+        .rect(HATCH_W, WALL + 2)
+        .extrude(HATCH_H)
+    )
+    shell = shell.cut(hatch_cut)
+
+    # Thin lip/frame around the hatch opening (hatch door sits against this)
+    lip_thickness = 1.5
+    lip_depth = 2.0
+    hatch_lip_outer = (
+        cq.Workplane("XY")
+        .workplane(offset=hatch_z_center - HATCH_H / 2 - lip_thickness)
+        .center(0, -(MEETING_D / 2 - WALL))
+        .rect(HATCH_W + lip_thickness * 2, lip_depth)
+        .extrude(HATCH_H + lip_thickness * 2)
+    )
+    hatch_lip_inner = (
+        cq.Workplane("XY")
+        .workplane(offset=hatch_z_center - HATCH_H / 2 - 0.1)
+        .center(0, -(MEETING_D / 2 - WALL))
+        .rect(HATCH_W, lip_depth + 0.2)
+        .extrude(HATCH_H + 0.2)
+    )
+    hatch_lip = hatch_lip_outer.cut(hatch_lip_inner)
+    shell = shell.union(hatch_lip)
+
+    # --- Panel line on top shell ---
+    shell = panel_line_cut(shell, PANEL_LINE_Z_TOP, TOP_H, MEETING_W, MEETING_D, TOP_W, TOP_D, PANEL_LINE_WIDTH, PANEL_LINE_DEPTH)
+
     return shell
 
 
