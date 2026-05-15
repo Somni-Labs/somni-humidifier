@@ -788,6 +788,138 @@ def build_base():
     )
     base = base.cut(collector)
 
+    # Atomizer spur: MOSFET pocket → front wall → right divider → pump row → left divider → wet zone
+    _atm_spur_y = interior_y_min + 3  # 3mm from front wall, clear of pump_0
+
+    # Segment 1: dry zone floor, from collector to right divider
+    _atm_seg1_x_start = DIVIDER_DRY_X + WALL_INNER / 2 + 1
+    _atm_seg1_x_end = _collector_x
+    atm_seg1 = (
+        cq.Workplane("XY")
+        .box(_atm_seg1_x_end - _atm_seg1_x_start, CHANNEL_W, CHANNEL_D)
+        .translate(((_atm_seg1_x_start + _atm_seg1_x_end) / 2, _atm_spur_y,
+                     FLOOR_H + CHANNEL_D / 2))
+    )
+    base = base.cut(atm_seg1)
+
+    # Segment 1b: Y-direction connector from MOSFET front edge down to _atm_spur_y
+    _atm_seg1b_y_end = mosfet_y - MOSFET_BOARD_W / 2
+    atm_seg1b = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W, abs(_atm_seg1b_y_end - _atm_spur_y), CHANNEL_D)
+        .translate((_collector_x, (_atm_spur_y + _atm_seg1b_y_end) / 2,
+                     FLOOR_H + CHANNEL_D / 2))
+    )
+    base = base.cut(atm_seg1b)
+
+    # Segment 2: across pump row floor (right divider → left divider)
+    _atm_seg2_x_start = DIVIDER_WET_X - WALL_INNER / 2 - 1
+    _atm_seg2_x_end = DIVIDER_DRY_X - WALL_INNER / 2 + 1
+    atm_seg2 = (
+        cq.Workplane("XY")
+        .box(abs(_atm_seg2_x_end - _atm_seg2_x_start), CHANNEL_W, CHANNEL_D)
+        .translate(((_atm_seg2_x_start + _atm_seg2_x_end) / 2, _atm_spur_y,
+                     FLOOR_H + CHANNEL_D / 2))
+    )
+    base = base.cut(atm_seg2)
+
+    # Segment 3a: wet zone, Y-direction from _atm_spur_y up to atomizer driver Y
+    atm_seg3a = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W, abs(_atm_drv_y - _atm_spur_y), CHANNEL_D)
+        .translate((DIVIDER_WET_X - WALL_INNER / 2 - 3,
+                     (_atm_spur_y + _atm_drv_y) / 2,
+                     FLOOR_H + CHANNEL_D / 2))
+    )
+    base = base.cut(atm_seg3a)
+
+    # Segment 3b: wet zone, X-direction from left divider to atomizer driver
+    _atm_seg3b_x_start = _atm_drv_x + ATOMIZER_DRIVER_W / 2 + 1
+    _atm_seg3b_x_end = DIVIDER_WET_X - WALL_INNER / 2 - 3
+    atm_seg3b = (
+        cq.Workplane("XY")
+        .box(abs(_atm_seg3b_x_end - _atm_seg3b_x_start), CHANNEL_W, CHANNEL_D)
+        .translate(((_atm_seg3b_x_start + _atm_seg3b_x_end) / 2, _atm_drv_y,
+                     FLOOR_H + CHANNEL_D / 2))
+    )
+    base = base.cut(atm_seg3b)
+
+    # LED spur: ESP32 pocket rear edge → rear wall (LED strip entry)
+    _led_spur_y_start = esp32_y + ESP32_W / 2
+    _led_spur_y_end = interior_y_max - 2
+    led_spur = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W, _led_spur_y_end - _led_spur_y_start, CHANNEL_D)
+        .translate((elec_col_x, (_led_spur_y_start + _led_spur_y_end) / 2,
+                     FLOOR_H + CHANNEL_D / 2))
+    )
+    base = base.cut(led_spur)
+
+    # === CROSS-DIVIDER WIRE PORTS ===
+
+    # Right divider: 5 pump wire ports (one per pump Y position)
+    for py in pump_y_positions:
+        pump_wire_port = (
+            cq.Workplane("XY")
+            .workplane(offset=WIRE_PORT_Z)
+            .center(DIVIDER_DRY_X, py)
+            .rect(WALL_INNER + 2, WIRE_PORT_W)
+            .extrude(WIRE_PORT_H)
+        )
+        base = base.cut(pump_wire_port)
+
+    # Right divider: atomizer spur port (front)
+    atm_port_right = (
+        cq.Workplane("XY")
+        .workplane(offset=WIRE_PORT_Z)
+        .center(DIVIDER_DRY_X, _atm_spur_y)
+        .rect(WALL_INNER + 2, WIRE_PORT_W)
+        .extrude(WIRE_PORT_H)
+    )
+    base = base.cut(atm_port_right)
+
+    # Left divider: atomizer spur port (matching)
+    atm_port_left = (
+        cq.Workplane("XY")
+        .workplane(offset=WIRE_PORT_Z)
+        .center(DIVIDER_WET_X, _atm_spur_y)
+        .rect(WALL_INNER + 2, WIRE_PORT_W)
+        .extrude(WIRE_PORT_H)
+    )
+    base = base.cut(atm_port_left)
+
+    # === POCKET WALL NOTCHES (where wire channels enter pockets) ===
+
+    # PD+Buck pocket — notch on +Y wall (facing power trunk)
+    pd_notch = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(elec_col_x, pd_buck_y + _pd_buck_d / 2 + 0.5)
+        .rect(CHANNEL_NOTCH_W, 2)
+        .extrude(CHANNEL_NOTCH_H)
+    )
+    base = base.cut(pd_notch)
+
+    # MOSFET pocket — notch on −X wall (facing pump spurs)
+    mos_notch_left = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(elec_col_x - MOSFET_BOARD_D / 2 - 0.5, mosfet_y)
+        .rect(2, CHANNEL_NOTCH_W)
+        .extrude(CHANNEL_NOTCH_H)
+    )
+    base = base.cut(mos_notch_left)
+
+    # ESP32 pocket — notch on +Y wall (LED spur exit)
+    esp_notch_rear = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(elec_col_x, esp32_y + ESP32_W / 2 + 0.5)
+        .rect(CHANNEL_NOTCH_W, 2)
+        .extrude(CHANNEL_NOTCH_H)
+    )
+    base = base.cut(esp_notch_rear)
+
     # --- Rubber feet ---
     foot_coords = [
         (-BASE_W / 2 + FOOT_INSET, -BASE_D / 2 + FOOT_INSET),
