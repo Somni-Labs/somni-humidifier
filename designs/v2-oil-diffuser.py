@@ -169,12 +169,16 @@ HEX_CELL_SIZE = 9
 HEX_WALL = 1.5
 HEX_MARGIN = 5
 
-# --- LED strip channel ---
-LED_CHANNEL_W = 12
-LED_CHANNEL_D = 4
+# --- LED strip channel (continuous perimeter loop) ---
+LED_CHANNEL_W = 12           # WS2812B strip width
+LED_CHANNEL_D = 5            # strip + adhesive depth (slightly deeper for routing)
+# The strip runs a full loop around the inside of the base, behind all
+# hex mesh panels. A single entry/exit point near the ESP32 for wiring.
 
 # --- SOMNI branding ---
-BRAND_DEPTH = 0.6
+BRAND_DEPTH = 0.8            # deboss depth (slightly deeper for visibility)
+BRAND_FONT_SIZE = 12         # "SOMNI" text size (mm)
+BRAND_SUB_SIZE = 6           # "LABS" subtitle size (mm)
 
 
 # =============================================================================
@@ -525,26 +529,54 @@ def build_base():
         )
         base = base.cut(foot_pocket)
 
-    # --- LED strip channels (behind hex mesh panels) ---
+    # --- LED strip channel (continuous perimeter loop, all 4 walls) ---
+    # The WS2812B strip runs a full loop inside the base walls, behind the
+    # hex mesh panels. Channel sits near the top of the base for max glow.
     led_z = BASE_H - WALL - LED_CHANNEL_D - 2
-    # Front wall
+    # Interpolate wall positions at LED channel height for taper
+    _t_led = (led_z + LED_CHANNEL_W / 2) / BASE_H
+    _w_at_led = BASE_W + _t_led * (MEETING_W - BASE_W)
+    _d_at_led = BASE_D + _t_led * (MEETING_D - BASE_D)
+
+    # Front wall (-Y)
     led_front = (
         cq.Workplane("XY")
         .workplane(offset=led_z)
-        .center(0, -(MEETING_D / 2 - WALL - LED_CHANNEL_D / 2))
-        .rect(BASE_W - WALL * 2 - 10, LED_CHANNEL_D)
+        .center(0, -(_d_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1))
+        .rect(_w_at_led - WALL * 2 - 6, LED_CHANNEL_D)
         .extrude(LED_CHANNEL_W)
     )
     base = base.cut(led_front)
-    # Left wall
+
+    # Rear wall (+Y)
+    led_rear = (
+        cq.Workplane("XY")
+        .workplane(offset=led_z)
+        .center(0, _d_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1)
+        .rect(_w_at_led - WALL * 2 - 6, LED_CHANNEL_D)
+        .extrude(LED_CHANNEL_W)
+    )
+    base = base.cut(led_rear)
+
+    # Left wall (-X)
     led_left = (
         cq.Workplane("XY")
         .workplane(offset=led_z)
-        .center(-(MEETING_W / 2 - WALL - LED_CHANNEL_D / 2), 0)
-        .rect(LED_CHANNEL_D, BASE_D - WALL * 2 - 10)
+        .center(-(_w_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1), 0)
+        .rect(LED_CHANNEL_D, _d_at_led - WALL * 2 - 6)
         .extrude(LED_CHANNEL_W)
     )
     base = base.cut(led_left)
+
+    # Right wall (+X)
+    led_right = (
+        cq.Workplane("XY")
+        .workplane(offset=led_z)
+        .center(_w_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1, 0)
+        .rect(LED_CHANNEL_D, _d_at_led - WALL * 2 - 6)
+        .extrude(LED_CHANNEL_W)
+    )
+    base = base.cut(led_right)
 
     # --- Hex mesh cutouts ---
     hex_panel_h = BASE_H * 0.45
@@ -572,6 +604,14 @@ def build_base():
         .translate((0, (BASE_D / 2 - _taper_shrink_base * 0.5), hex_panel_z + hex_panel_h / 2)))
     base = base.cut(hex_rear_pos)
 
+    # Right wall hex mesh (dry zone, LED glow through)
+    hex_right = hex_mesh_cutout(BASE_D * 0.5, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
+    hex_right_pos = (hex_right
+        .rotateAboutCenter((0, 0, 1), 90)
+        .rotateAboutCenter((0, 1, 0), 90)
+        .translate((BASE_W / 2 - _taper_shrink_base * 0.5, 0, hex_panel_z + hex_panel_h / 2)))
+    base = base.cut(hex_right_pos)
+
     # --- Magnet pockets on base rim ---
     for mx, my in magnet_positions:
         mp = (cq.Workplane("XY").workplane(offset=BASE_H - MAGNET_H)
@@ -585,16 +625,35 @@ def build_base():
                .center(px, py).circle(PIN_DIA / 2).extrude(PIN_H))
         base = base.union(pin)
 
-    # --- SOMNI branding (rear panel) ---
+    # --- SOMNI LABS branding (rear panel, +Y wall) ---
+    # Two-line debossed text: "SOMNI" large, "LABS" smaller below.
+    # Centered on the rear face, positioned below the panel line.
+    brand_z = BASE_H * 0.30  # vertical center of branding block
     try:
-        brand = (cq.Workplane("XZ").workplane(offset=BASE_D / 2)
-                 .center(0, BASE_H * 0.35)
-                 .text("SOMNI", 8, -BRAND_DEPTH, font="sans-serif"))
-        base = base.cut(brand)
+        brand_main = (
+            cq.Workplane("XZ")
+            .workplane(offset=BASE_D / 2)
+            .center(0, brand_z + 4)
+            .text("SOMNI", BRAND_FONT_SIZE, -BRAND_DEPTH, font="sans-serif")
+        )
+        base = base.cut(brand_main)
+        brand_sub = (
+            cq.Workplane("XZ")
+            .workplane(offset=BASE_D / 2)
+            .center(0, brand_z - 6)
+            .text("LABS", BRAND_SUB_SIZE, -BRAND_DEPTH, font="sans-serif")
+        )
+        base = base.cut(brand_sub)
     except Exception:
-        brand = (cq.Workplane("XY").workplane(offset=BASE_H * 0.3)
-                 .center(0, BASE_D / 2).rect(35, 8).extrude(-BRAND_DEPTH))
-        base = base.cut(brand)
+        # Fallback: rectangular recess if text rendering isn't available
+        brand_recess = (
+            cq.Workplane("XY")
+            .workplane(offset=brand_z)
+            .center(0, BASE_D / 2)
+            .rect(50, 16)
+            .extrude(-BRAND_DEPTH)
+        )
+        base = base.cut(brand_recess)
 
     return base
 
@@ -783,6 +842,8 @@ print()
 print("--- Connections ---")
 print(f"Magnets:     {len(magnet_positions)}x {MAGNET_DIA}mm dia x {MAGNET_H}mm")
 print(f"Pins:        {len(pin_positions)}x {PIN_DIA}mm dia x {PIN_H}mm")
-print(f"Hex mesh:    front + left + rear walls")
+print(f"Hex mesh:    all 4 walls (front + rear + left + right)")
+print(f"LED strip:   continuous perimeter loop, {LED_CHANNEL_W}x{LED_CHANNEL_D}mm channel")
+print(f"Branding:    'SOMNI LABS' debossed on rear panel ({BRAND_FONT_SIZE}pt + {BRAND_SUB_SIZE}pt)")
 print()
 print(f"Print bed:   {BASE_W}x{BASE_D}mm fits QIDI Q2 (245x255mm)")
