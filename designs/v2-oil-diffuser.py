@@ -1,8 +1,8 @@
 """
-Somni Oil Diffuser — V3.1 "Night City"
+Somni Oil Diffuser — V3.2 "Night City"
 
 Cyberpunk-styled essential oil diffuser with automated scent blending.
-200x160mm rectangular footprint (fits QIDI Q2 245x255mm bed).
+160x160mm square footprint (fits QIDI Q2 245x255mm bed).
 
 REAL-WORLD BOM — all component dimensions verified from sourcing research:
   Pumps:     5× JIHPUMP WX3 micro peristaltic (23×35×25mm, 3.7-6V)
@@ -15,22 +15,20 @@ REAL-WORLD BOM — all component dimensions verified from sourcing research:
   Sensor:    Capacitive water level sensor on divider wall
 
 Three-part enclosure connected via magnets:
-  BASE  — holds reservoir, atomizer, pumps, bottles (three zones)
+  BASE  — holds reservoir, atomizer, pumps (two zones)
   TRAY  — lift-out electronics shelf, sits above pumps in center zone
-  SHELL — three-zone functional lid: fill chute + mist chimney, transit, storage
+  SHELL — two-zone functional lid: fill chute + mist chimney, bottles + storage
 
-Bottles sit upright in the base. Lift the top shell off for full access.
+Bottles hang cap-down from the top shell ceiling. Lift top shell off for access.
 Electronics tray lifts out for pump access (building Legos assembly).
 
-Base layout (three zones, left to right):
+Base layout (two zones, left to right):
   WET ZONE    (left)    — water reservoir + atomizer mount
-  CENTER ZONE (center)  — two levels: pumps (bottom) + electronics tray (top)
-  OIL ZONE    (right)   — 5 bottle wells only (narrow, spill-isolated)
+  CENTER ZONE (right)   — two levels: pumps (bottom) + electronics tray (top)
 
-Top shell layout (three zones, matching base dividers):
-  MIST+FILL  (left)   — mist chimney + chevron exhaust + water fill chute
-  TRANSIT    (center) — structural / cable routing gap above center zone
-  STORAGE    (right)  — compartment for accessories/spare bottles
+Top shell layout (two zones, matching base divider):
+  MIST+FILL        (left)   — mist chimney + chevron exhaust + water fill chute
+  BOTTLES+STORAGE  (right)  — 5 bottle wells (ceiling) + open storage below
 
 Power architecture: 5V single-rail (all loads are 5V)
   USB-C PD (12V) → buck converter → 5V rail
@@ -54,7 +52,7 @@ WALL_INNER = 2.5         # internal divider walls
 FILLET_R = 1.5            # small edge breaks
 
 # --- Overall form factor ---
-BASE_W = 200             # base footprint width (X) at Z=0
+BASE_W = 160             # base footprint width (X) at Z=0 — square
 BASE_D = 160             # base footprint depth (Y) at Z=0
 BASE_H = 70              # base height (Z)
 TOP_H = 60               # top shell height (Z)
@@ -79,14 +77,11 @@ PANEL_LINE_DEPTH = 1.0
 # --- Base floor ---
 FLOOR_H = 3.0
 
-# --- Zone dividers ---
-# Two divider walls run parallel to Y axis, creating three zones.
+# --- Zone divider ---
+# One divider wall runs parallel to Y axis, creating two zones.
 # Wet zone: X < DIVIDER_WET_X — water reservoir + atomizer
-# Center zone: DIVIDER_WET_X < X < DIVIDER_DRY_X — two-level: pumps + electronics tray
-# Oil zone: X > DIVIDER_DRY_X — bottles only (narrow, spill-isolated)
-# V3.1: Center zone widened to ~70mm for two-level design (pumps bottom, tray top)
+# Center zone: X > DIVIDER_WET_X — two-level: pumps + electronics tray
 DIVIDER_WET_X = -17      # left divider (wet/center boundary)
-DIVIDER_DRY_X = 55       # right divider (center/oil boundary) — moved right from 22
 
 # --- Water reservoir (wet zone) ---
 RESERVOIR_DEPTH = BASE_H - FLOOR_H - WALL
@@ -100,133 +95,96 @@ ATOMIZER_POS_X = -55         # well into wet zone (left side)
 ATOMIZER_POS_Y = 0           # centered front-to-back
 
 # --- Peristaltic pumps (5x JIHPUMP WX3 micro, in center zone lower level) ---
-# WX3: 23mm wide × 35mm long × 25mm tall, 3.7-6V, up to 10ml/min
-# Oriented with 35mm (length) along X (across center zone) and 23mm (width) along Y.
-# At 26mm Y-spacing: 3mm clearance between 23mm bodies.
-# Pumps sit in the center zone (lower level), centered in the 70mm-wide space.
-PUMP_BODY_W = 35             # WX3 length oriented along X (across center zone)
-PUMP_BODY_D = 23             # WX3 width oriented along Y (along the row)
+PUMP_BODY_W = 35             # WX3 length oriented along X
+PUMP_BODY_D = 23             # WX3 width oriented along Y
 PUMP_BODY_H = 25             # WX3 height
 PUMP_COUNT = 5
 PUMP_SPACING = 26            # center-to-center along Y axis
-# Pumps centered in center zone
-PUMP_CENTER_X = (DIVIDER_WET_X + DIVIDER_DRY_X) / 2  # ≈19
+# Pumps centered in center zone (no right boundary — outer wall is the edge)
+PUMP_CENTER_X = (DIVIDER_WET_X + MEETING_W / 2 - WALL) / 2
 
-# --- Oil bottles (5x, in oil zone — narrow right zone) ---
-# 15ml essential oil bottles (industry standard): body ~22mm dia, cap ~18mm dia
-# Total height ~55mm with cap (fits in 67mm usable height).
-# NOTE: 50ml bottles (33mm × 95mm) are too tall for the 70mm base.
-# Oil zone is narrow (~33mm) — dedicated to bottles only, spill-isolated.
-BOTTLE_DIA = 22              # 15ml bottle body diameter
-BOTTLE_CAP_DIA = 18          # dropper/screw cap diameter (narrower than body)
-BOTTLE_HEIGHT = 55           # total height with cap (must fit in base)
+# --- Bottle wells (top shell) ---
+# Bottles hang cap-down from the top shell ceiling in the right zone.
+# Wells are recessed 3mm into the ceiling with retaining rings.
+BOTTLE_DIA = 22
+BOTTLE_CAP_DIA = 18
+BOTTLE_HEIGHT = 55
 BOTTLE_COUNT = 5
-BOTTLE_WELL_DEPTH = 6        # deeper ring for secure seating
-BOTTLE_WELL_DIA = BOTTLE_DIA + 2 * TOL + 2  # ~24.8mm
-BOTTLE_SPACING = 26          # center-to-center along Y axis
-# Bottles centered in the narrow oil zone
-BOTTLE_ROW_X = DIVIDER_DRY_X + WALL_INNER / 2 + BOTTLE_WELL_DIA / 2 + 2
-BOTTLE_ROW_Y_CENTER = 0
-
-# Bottle Y positions (row of 5)
+BOTTLE_WELL_DEPTH = 3        # recess into ceiling
+BOTTLE_WELL_DIA = 22 + 2 * 0.4 + 2  # 24.8mm
+BOTTLE_SPACING = 26
+# Bottles centered in the right zone of the top shell
+BOTTLE_ROW_X_TOP = (DIVIDER_WET_X + WALL_INNER / 2 + MEETING_W / 2 - WALL) / 2
 bottle_y_positions = [-(BOTTLE_COUNT - 1) / 2 * BOTTLE_SPACING + i * BOTTLE_SPACING
                        for i in range(BOTTLE_COUNT)]
 
-# --- Bottle retention clips (swing-latch over bottle neck) ---
-# Printed hinged clips that swing over the bottle neck to lock it in place.
-# Each clip pivots on a small pin at the base of the retaining wall and
-# snaps over the cap/neck area. The clip arm spans across the bottle top.
-# V3.1: Compact catch (2mm) for narrow oil zone clearance.
-CLIP_ARM_W = 4               # width of the clip arm
-CLIP_ARM_H = 3               # thickness of the clip arm
-CLIP_PIN_DIA = 2.0           # hinge pin diameter
-CLIP_PIN_H = 5               # hinge post height (above retainer ring)
-CLIP_CATCH_H = 5             # height of the catch hook (reduced from 8mm)
-# Clip pivots on the "left" side of each well (toward divider),
-# swings over the bottle, and catches on the "right" side.
-
-# --- Tube clips (removed — tubes enter from screw-on bottle caps) ---
-TUBE_CLIP_DIA = 6            # outer diameter of tube guide (legacy)
-TUBE_CLIP_H = 5              # height of guide post (legacy)
-
 # --- Electronics (on lift-out tray in center zone upper level) ---
-# All boards sit on a removable tray above the pump level.
-# Tray is ~69mm X × ~135mm Y — two rows of boards side-by-side.
 ESP32_W = 55                 # ESP32 DevKit V1 long dimension (along Y on tray)
 ESP32_D = 28                 # ESP32 DevKit V1 short dimension (across X on tray)
 ESP32_H = 13
-# Single 8-channel MOSFET board replaces 6 individual 25×20mm modules.
 MOSFET_BOARD_W = 50          # board long dimension (placed along Y on tray)
 MOSFET_BOARD_D = 26          # board short dimension (across X on tray)
 MOSFET_BOARD_H = 12
 MOSFET_COUNT = 6             # using 6 of 8 channels
-PD_TRIGGER_W = 24            # CH224K module (verified)
+PD_TRIGGER_W = 24            # CH224K module
 PD_TRIGGER_D = 18
 PD_TRIGGER_H = 8
-BUCK_CONV_W = 22             # MP1584EN buck converter (verified)
+BUCK_CONV_W = 22             # MP1584EN buck converter
 BUCK_CONV_D = 17
 BUCK_CONV_H = 5
-ATOMIZER_DRIVER_H = 6        # driver board thickness
+ATOMIZER_DRIVER_H = 6
 BME280_W = 15
 BME280_D = 12
 BME280_H = 5
 
-# --- Electronics tray (lift-out shelf, center zone upper level) ---
-# The tray sits above pump pockets on support ledges. Lifts straight out.
-# Board layout on tray (two rows side-by-side in X):
-#   Row 1 (left):  ESP32 (28mm X × 55mm Y)
-#   Row 2 (right): MOSFET (26mm X × 50mm Y) + PD/Buck (24mm X × 18mm Y)
-#                   + Atomizer driver (25mm X × 35mm Y) + BME280 (12mm X × 15mm Y)
-TRAY_WALL = 2.0              # tray perimeter wall thickness
-TRAY_FLOOR = 2.0             # tray floor thickness
-TRAY_LEG_W = 5.0             # support leg width (square cross-section)
-TRAY_LEG_INSET = 8.0         # leg inset from tray edges
-TRAY_CLEARANCE = 0.5         # gap between tray and center zone walls
-TRAY_Z = FLOOR_H + PUMP_BODY_H + 4  # tray floor Z (pump top + 4mm clearance) = 32mm
-TRAY_H = 20                  # tray total height (floor + walls + board space)
-TRAY_TAB_W = 8.0             # registration tab width
-TRAY_TAB_D = 2.0             # registration tab depth (into wall slot)
-TRAY_TAB_H = 4.0             # registration tab height
+# --- Electronics tray ---
+TRAY_WALL = 2.0
+TRAY_FLOOR = 2.0
+TRAY_LEG_W = 5.0
+TRAY_LEG_INSET = 8.0
+TRAY_CLEARANCE = 0.5
+TRAY_Z = FLOOR_H + PUMP_BODY_H + 4  # tray floor Z = 32mm
+TRAY_H = 20
+TRAY_TAB_W = 8.0
+TRAY_TAB_D = 2.0
+TRAY_TAB_H = 4.0
 
 # --- PCB retention features ---
-# Rail slots (ESP32, MOSFET board, PD trigger) — board slides in from top
-RAIL_GROOVE_W = 1.2          # groove width in pocket wall
-RAIL_GROOVE_D = 1.5          # groove depth into pocket wall
-RAIL_CLEARANCE = 0.3         # clearance per side
-RAIL_LIFT = 2.0              # board sits this far above pocket floor
-RAIL_CHAMFER = 0.5           # entry chamfer at top of rail
+RAIL_GROOVE_W = 1.2
+RAIL_GROOVE_D = 1.5
+RAIL_CLEARANCE = 0.3
+RAIL_LIFT = 2.0
+RAIL_CHAMFER = 0.5
 
-# Snap tabs (buck converter, atomizer driver) — press-fit nubs
-SNAP_NUB_W = 1.5             # nub width along pocket wall
-SNAP_NUB_H = 1.0             # nub protrusion from wall
-SNAP_NUB_ANGLE = 45          # entry ramp angle (degrees)
+SNAP_NUB_W = 1.5
+SNAP_NUB_H = 1.0
+SNAP_NUB_ANGLE = 45
 
-# Pump shelf ledges — anti-vibration lips inside pump pockets
-PUMP_LEDGE_LIP = 1.0         # ledge protrusion into pocket
-PUMP_LEDGE_H = 1.5           # ledge thickness (Z)
+# Pump shelf ledges
+PUMP_LEDGE_LIP = 1.0
+PUMP_LEDGE_H = 1.5
 
 # --- Wire channel network ---
-CHANNEL_W = 3.0              # channel width (open-top groove)
-CHANNEL_D = 3.0              # channel depth into floor
-CHANNEL_NOTCH_W = 3.0        # notch width where channel meets pocket wall
-CHANNEL_NOTCH_H = 3.0        # notch height in pocket wall
+CHANNEL_W = 3.0
+CHANNEL_D = 3.0
+CHANNEL_NOTCH_W = 3.0
+CHANNEL_NOTCH_H = 3.0
 
 # Cross-divider wire ports
-WIRE_PORT_W = 5.0            # port width
-WIRE_PORT_H = 4.0            # port height
-WIRE_PORT_Z = FLOOR_H + 1   # port bottom Z position
+WIRE_PORT_W = 5.0
+WIRE_PORT_H = 4.0
+WIRE_PORT_Z = FLOOR_H + 1
 
-# --- Capacitive touch buttons (top shell surface) ---
-TOUCH_BTN_W = 15             # TTP223 module width (verified)
-TOUCH_BTN_D = 11             # TTP223 module depth (verified)
-TOUCH_BTN_H = 2              # module thickness (glued to underside)
-TOUCH_ZONE_DIA = 20          # touch-sensitive area on top surface
-TOUCH_BTN_COUNT = 2          # power + mist intensity
-TOUCH_BTN_SPACING = 35       # center-to-center between buttons
-# Buttons centered on the front edge of the top shell, Y offset toward front
-TOUCH_BTN_Y = -40            # front half of top shell
+# --- Capacitive touch buttons ---
+TOUCH_BTN_W = 15
+TOUCH_BTN_D = 11
+TOUCH_BTN_H = 2
+TOUCH_ZONE_DIA = 20
+TOUCH_BTN_COUNT = 2
+TOUCH_BTN_SPACING = 35
+TOUCH_BTN_Y = -40
 
-# --- USB-C port (rear panel) ---
+# --- USB-C port ---
 USBC_PORT_W = 12
 USBC_PORT_H = 7
 
@@ -251,27 +209,22 @@ MIST_POS_X = ATOMIZER_POS_X
 MIST_POS_Y = ATOMIZER_POS_Y
 
 # --- Water fill chute (top shell, left zone) ---
-# Funnel on top surface that channels water down through the top shell
-# directly into the wet zone reservoir below. Offset to rear of wet zone
-# to avoid the mist chimney (which is centered at ATOMIZER_POS_X, 0).
-FILL_CHUTE_TOP_W = 35           # opening at top surface (wide funnel mouth)
+FILL_CHUTE_TOP_W = 35
 FILL_CHUTE_TOP_D = 40
-FILL_CHUTE_BOT_W = 18           # narrower at bottom (drip into reservoir)
+FILL_CHUTE_BOT_W = 18
 FILL_CHUTE_BOT_D = 25
-FILL_CHUTE_POS_X = ATOMIZER_POS_X  # same X as atomizer (wet zone center)
-FILL_CHUTE_POS_Y = 45              # rear half of wet zone, away from chimney
-FILL_CHUTE_LIP_H = 3               # raised lip to prevent spills
+FILL_CHUTE_POS_X = ATOMIZER_POS_X
+FILL_CHUTE_POS_Y = 45
+FILL_CHUTE_LIP_H = 3
 
-# --- Top shell zone dividers ---
-# Mirror the base dividers but in the top shell coordinate space
-TOP_DIVIDER_WET_X = DIVIDER_WET_X    # left divider (mist+fill | transit)
-TOP_DIVIDER_DRY_X = DIVIDER_DRY_X    # right divider (transit | storage)
+# --- Top shell zone divider ---
+TOP_DIVIDER_WET_X = DIVIDER_WET_X
 
 # --- Storage compartment (top shell, right zone) ---
-STORAGE_LID_RECESS = 2.0       # recessed edge for a snap-fit lid
-STORAGE_WALL = 2.0             # inner walls of storage compartment
+STORAGE_LID_RECESS = 2.0
+STORAGE_WALL = 2.0
 
-# --- Exhaust port (top surface, chevron) ---
+# --- Exhaust port ---
 EXHAUST_W = 40
 EXHAUST_D = 25
 EXHAUST_POS_X = MIST_POS_X
@@ -282,16 +235,14 @@ HEX_CELL_SIZE = 9
 HEX_WALL = 1.5
 HEX_MARGIN = 5
 
-# --- LED strip channel (continuous perimeter loop) ---
-LED_CHANNEL_W = 12           # WS2812B strip width
-LED_CHANNEL_D = 5            # strip + adhesive depth (slightly deeper for routing)
-# The strip runs a full loop around the inside of the base, behind all
-# hex mesh panels. A single entry/exit point near the ESP32 for wiring.
+# --- LED strip channel ---
+LED_CHANNEL_W = 12
+LED_CHANNEL_D = 5
 
 # --- SOMNI branding ---
-BRAND_DEPTH = 0.8            # deboss depth (slightly deeper for visibility)
-BRAND_FONT_SIZE = 12         # "SOMNI" text size (mm)
-BRAND_SUB_SIZE = 6           # "LABS" subtitle size (mm)
+BRAND_DEPTH = 0.8
+BRAND_FONT_SIZE = 12
+BRAND_SUB_SIZE = 6
 
 
 # =============================================================================
@@ -404,11 +355,10 @@ def hex_mesh_cutout(width, height, cell_size, wall_thickness, margin):
 # =============================================================================
 
 def build_base():
-    """Three-zone base: wet (left) | center two-level (middle) | oil bottles (right).
+    """Two-zone base: wet (left) | center two-level (right).
 
     Center zone lower level: 5 pumps.
     Center zone upper level: lift-out electronics tray (separate part).
-    Oil zone: bottles only — narrow, spill-isolated from electronics.
     """
 
     # --- Outer tapered shell ---
@@ -429,10 +379,10 @@ def build_base():
         PANEL_LINE_WIDTH, PANEL_LINE_DEPTH
     )
 
-    # --- Divider walls (two, creating three zones) ---
+    # --- Divider wall (one, creating two zones) ---
     divider_h = BASE_H - FLOOR_H - WALL - 2
 
-    # Left divider (wet zone | pump row)
+    # Left divider (wet zone | center zone)
     divider_left = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H)
@@ -441,16 +391,6 @@ def build_base():
         .extrude(divider_h)
     )
     base = base.union(divider_left)
-
-    # Right divider (pump row | dry zone)
-    divider_right = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(DIVIDER_DRY_X, 0)
-        .rect(WALL_INNER, BASE_D - WALL * 2 - 2)
-        .extrude(divider_h)
-    )
-    base = base.union(divider_right)
 
     # --- WET ZONE (left of DIVIDER_WET_X) ---
 
@@ -476,8 +416,6 @@ def build_base():
     base = base.union(seal_ring)
 
     # Water level sensor mounting pad (on outside of left divider wall)
-    # Just a flat area — sensor adheres to the outside of the divider
-    # (no physical geometry needed, but we mark it with a shallow recess)
     sensor_pad = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H + 15)
@@ -487,9 +425,9 @@ def build_base():
     )
     base = base.cut(sensor_pad)
 
-    # --- PUMP ROW (between dividers) ---
+    # --- CENTER ZONE (right of DIVIDER_WET_X) ---
 
-    # 5 pump pockets centered between dividers
+    # 5 pump pockets centered in center zone
     for py in pump_y_positions:
         pump_pocket = (
             cq.Workplane("XY")
@@ -500,7 +438,7 @@ def build_base():
         )
         base = base.cut(pump_pocket)
 
-        # Shelf ledges on ±Y walls of pump pocket (anti-vibration)
+        # Shelf ledges on +/-Y walls of pump pocket
         for _ledge_side in [-1, 1]:
             ledge = (
                 cq.Workplane("XY")
@@ -512,8 +450,7 @@ def build_base():
             )
             base = base.union(ledge)
 
-    # Tube pass-through holes in LEFT divider (pump output → reservoir)
-    # One per pump, at the top of the divider
+    # Tube pass-through holes in LEFT divider (pump output -> reservoir)
     for py in pump_y_positions:
         tube_out = (
             cq.Workplane("XY")
@@ -524,90 +461,12 @@ def build_base():
         )
         base = base.cut(tube_out)
 
-    # Tube pass-through holes in RIGHT divider (bottle → pump intake)
-    # One per pump, matched to bottle positions
-    for py in pump_y_positions:
-        tube_in = (
-            cq.Workplane("XY")
-            .workplane(offset=FLOOR_H + divider_h - 8)
-            .center(DIVIDER_DRY_X, py)
-            .circle(3)
-            .extrude(10)
-        )
-        base = base.cut(tube_in)
-
-    # --- OIL ZONE (right of DIVIDER_DRY_X) — bottles only ---
-    # Narrow zone (~33mm) dedicated exclusively to 5 oil bottles.
-    # No electronics here — spill-isolated from all PCBs.
-
-    # Bottle wells — deeper pockets with tall retaining walls + swing latch
-    retainer_h = 18  # tall enough to grip ~1/3 of the bottle body
-    for by in bottle_y_positions:
-        # Well pocket (deeper for secure seating)
-        well = (
-            cq.Workplane("XY")
-            .workplane(offset=FLOOR_H)
-            .center(BOTTLE_ROW_X, by)
-            .circle(BOTTLE_WELL_DIA / 2)
-            .extrude(BOTTLE_WELL_DEPTH)
-        )
-        base = base.cut(well)
-
-        # Tall retaining wall around each well — grips the bottle body
-        retainer = (
-            cq.Workplane("XY")
-            .workplane(offset=FLOOR_H)
-            .center(BOTTLE_ROW_X, by)
-            .circle(BOTTLE_WELL_DIA / 2 + 2)
-            .circle(BOTTLE_WELL_DIA / 2)
-            .extrude(retainer_h)
-        )
-        base = base.union(retainer)
-
-        # --- Swing latch (hinge + arm + catch) ---
-        hinge_x = BOTTLE_ROW_X - BOTTLE_WELL_DIA / 2 - 2
-        hinge_z = FLOOR_H + retainer_h
-
-        # Hinge post (vertical pin the latch arm rotates on)
-        hinge_post = (
-            cq.Workplane("XY")
-            .workplane(offset=hinge_z)
-            .center(hinge_x, by)
-            .circle(CLIP_PIN_DIA / 2)
-            .extrude(CLIP_PIN_H)
-        )
-        base = base.union(hinge_post)
-
-        # Catch hook on the right side (compact for narrow zone)
-        catch_x = BOTTLE_ROW_X + BOTTLE_WELL_DIA / 2 + 2
-        catch_post = (
-            cq.Workplane("XY")
-            .workplane(offset=hinge_z)
-            .center(catch_x, by)
-            .rect(CLIP_ARM_W, CLIP_ARM_W)
-            .extrude(CLIP_CATCH_H)
-        )
-        base = base.union(catch_post)
-
-        # Catch undercut notch
-        catch_notch = (
-            cq.Workplane("XY")
-            .workplane(offset=hinge_z + CLIP_CATCH_H - 2)
-            .center(catch_x - CLIP_ARM_W / 2, by)
-            .rect(CLIP_ARM_W, CLIP_ARM_W + 1)
-            .extrude(1.5)
-        )
-        base = base.cut(catch_notch)
-
     # === CENTER ZONE UPPER LEVEL — tray support ledges ===
-    # Continuous ledges on both divider walls at TRAY_Z height for the
-    # lift-out electronics tray to rest on. Tray sits on these ledges
-    # and is located by registration tab slots.
     interior_y_min = -(MEETING_D / 2 - WALL - 2)
     interior_y_max = (MEETING_D / 2 - WALL - 2)
     _center_y_span = interior_y_max - interior_y_min
-    _tray_ledge_w = 4.0  # ledge protrusion from divider wall
-    _tray_ledge_h = 3.0  # ledge thickness (Z)
+    _tray_ledge_w = 4.0
+    _tray_ledge_h = 3.0
 
     # Left divider ledge (wet side of center zone)
     tray_ledge_left = (
@@ -619,18 +478,17 @@ def build_base():
     )
     base = base.union(tray_ledge_left)
 
-    # Right divider ledge (oil side of center zone)
+    # Right outer wall ledge (inner face of right wall)
     tray_ledge_right = (
         cq.Workplane("XY")
         .workplane(offset=TRAY_Z - _tray_ledge_h)
-        .center(DIVIDER_DRY_X - WALL_INNER / 2 - _tray_ledge_w / 2, 0)
+        .center(MEETING_W / 2 - WALL - _tray_ledge_w / 2, 0)
         .rect(_tray_ledge_w, _center_y_span - 4)
         .extrude(_tray_ledge_h)
     )
     base = base.union(tray_ledge_right)
 
-    # Registration tab slots in both divider walls (tray tabs slide into these)
-    # 4 slots total: 2 per divider wall, front and rear positions
+    # Registration tab slots (2 on left divider, 2 on right outer wall)
     _tab_y_positions = [interior_y_min + 20, interior_y_max - 20]
     for tab_y in _tab_y_positions:
         # Left divider tab slot
@@ -643,35 +501,29 @@ def build_base():
         )
         base = base.cut(tab_slot_left)
 
-        # Right divider tab slot
+        # Right outer wall tab slot
         tab_slot_right = (
             cq.Workplane("XY")
             .workplane(offset=TRAY_Z - 1)
-            .center(DIVIDER_DRY_X - WALL_INNER / 2 - TRAY_TAB_D / 2, tab_y)
+            .center(MEETING_W / 2 - WALL - TRAY_TAB_D / 2, tab_y)
             .rect(TRAY_TAB_D + 0.5, TRAY_TAB_W + 0.5)
             .extrude(TRAY_TAB_H + 1)
         )
         base = base.cut(tab_slot_right)
 
-    # --- USB-C port cutout (rear wall of center zone, for tray electronics) ---
-    _center_x = PUMP_CENTER_X
+    # --- USB-C port cutout (rear wall of center zone) ---
     usbc_cutout = (
         cq.Workplane("XY")
         .workplane(offset=TRAY_Z + TRAY_FLOOR + 3)
-        .center(_center_x, BASE_D / 2)
+        .center(PUMP_CENTER_X, BASE_D / 2)
         .rect(USBC_PORT_W, WALL + 2)
         .extrude(USBC_PORT_H)
     )
     base = base.cut(usbc_cutout)
 
     # === WIRE CHANNEL NETWORK (base floor only) ===
-    # V3.1: Most wiring is on the electronics tray. Base floor channels are
-    # simplified to just the atomizer spur (tray → wet zone).
-
-    # Atomizer spur: center zone floor → left divider → wet zone → atomizer
-    # Wire drops from tray through a hole, runs along center zone front wall,
-    # crosses left divider, traverses wet zone floor to atomizer.
-    _atm_spur_y = interior_y_min + 3  # 3mm from front wall
+    # Atomizer spur: center zone floor -> left divider -> wet zone -> atomizer
+    _atm_spur_y = interior_y_min + 3
 
     # Segment 1: center zone floor, along front wall
     _atm_seg1_x_start = DIVIDER_WET_X + WALL_INNER / 2 + 1
@@ -706,7 +558,7 @@ def build_base():
 
     # === CROSS-DIVIDER WIRE PORTS ===
 
-    # Left divider: atomizer spur port (front of center zone)
+    # Left divider: atomizer spur port
     atm_port_left = (
         cq.Workplane("XY")
         .workplane(offset=WIRE_PORT_Z)
@@ -716,7 +568,7 @@ def build_base():
     )
     base = base.cut(atm_port_left)
 
-    # Left divider: tray wire pass-through (upper level, for tray cable harness)
+    # Left divider: tray wire pass-through
     tray_wire_port = (
         cq.Workplane("XY")
         .workplane(offset=TRAY_Z + TRAY_FLOOR)
@@ -725,7 +577,6 @@ def build_base():
         .extrude(6)
     )
     base = base.cut(tray_wire_port)
-
 
     # --- Rubber feet ---
     foot_coords = [
@@ -745,10 +596,7 @@ def build_base():
         base = base.cut(foot_pocket)
 
     # --- LED strip channel (continuous perimeter loop, all 4 walls) ---
-    # The WS2812B strip runs a full loop inside the base walls, behind the
-    # hex mesh panels. Channel sits near the top of the base for max glow.
     led_z = BASE_H - WALL - LED_CHANNEL_D - 2
-    # Interpolate wall positions at LED channel height for taper
     _t_led = (led_z + LED_CHANNEL_W / 2) / BASE_H
     _w_at_led = BASE_W + _t_led * (MEETING_W - BASE_W)
     _d_at_led = BASE_D + _t_led * (MEETING_D - BASE_D)
@@ -804,7 +652,7 @@ def build_base():
         .translate((0, -(BASE_D / 2 - _taper_shrink_base * 0.5), hex_panel_z + hex_panel_h / 2)))
     base = base.cut(hex_front_pos)
 
-    # Left wall hex mesh (wet zone glow)
+    # Left wall hex mesh
     hex_left = hex_mesh_cutout(BASE_D * 0.5, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
     hex_left_pos = (hex_left
         .rotateAboutCenter((0, 0, 1), 90)
@@ -819,7 +667,7 @@ def build_base():
         .translate((0, (BASE_D / 2 - _taper_shrink_base * 0.5), hex_panel_z + hex_panel_h / 2)))
     base = base.cut(hex_rear_pos)
 
-    # Right wall hex mesh (dry zone, LED glow through)
+    # Right wall hex mesh
     hex_right = hex_mesh_cutout(BASE_D * 0.5, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
     hex_right_pos = (hex_right
         .rotateAboutCenter((0, 0, 1), 90)
@@ -841,19 +689,12 @@ def build_base():
         base = base.union(pin)
 
     # --- SOMNI LABS branding (rear panel, +Y wall) ---
-    # Full logo: S-curve wave icon (from somni-icon.svg) + wordmark.
-    # The SVG has 8 bezier S-curves; we render 4 (every other) as debossed
-    # grooves traced by overlapping cylinder cuts along the path.
-    # Each groove is 1.2mm wide, 0.8mm deep — visible and printable.
-    #
-    # Layout: [wave icon ~25mm] [gap] [SOMNI / LABS text]
-    brand_z = BASE_H * 0.30    # vertical center of branding on rear wall
-    logo_cx = -22              # icon center X (left of text)
-    groove_r = 0.6             # groove half-width (1.2mm diameter cuts)
-    groove_d = BRAND_DEPTH     # groove depth into wall
+    brand_z = BASE_H * 0.30
+    logo_cx = -22
+    groove_r = 0.6
+    groove_d = BRAND_DEPTH
 
     # S-curve waypoints — sampled from SVG bezier paths, scaled to 25mm.
-    # Coordinates are (X_on_wall, Z_on_wall) relative to icon center.
     s_curves = [
         # Curve 0 (outermost)
         [(7.0,10.0),(8.23,9.74),(9.27,9.14),(10.14,7.95),
@@ -874,9 +715,7 @@ def build_base():
     ]
 
     # Cut all S-curve waypoints + center ring as a single batched boolean.
-    # (Individual cuts are O(n) OCCT booleans — batching into a compound
-    # reduces this to a single cut operation for massive speedup.)
-    groove_size = groove_r * 2  # 1.2mm square cross-section per cut
+    groove_size = groove_r * 2
     _brand_cuts = []
 
     for curve_pts in s_curves:
@@ -954,26 +793,26 @@ def build_base():
 def build_electronics_tray():
     """Removable tray that sits above pumps in the center zone.
 
-    Lifts straight out for pump access. Has legs that rest on the
-    divider wall ledges and registration tabs for alignment.
+    Lifts straight out for pump access. Left legs rest on divider wall
+    ledge, right legs rest on the outer wall ledge.
 
     Board layout (two rows side-by-side in X):
-      Left row:  ESP32 (28mm X × 55mm Y)
-      Right row: MOSFET (26mm X × 50mm Y), PD+Buck (24mm × 18mm),
-                 Atomizer driver (25mm × 35mm), BME280 (12mm × 15mm)
+      Left row:  ESP32 (28mm X x 55mm Y)
+      Right row: MOSFET (26mm X x 50mm Y), PD+Buck (24mm x 18mm),
+                 Atomizer driver (25mm x 35mm), BME280 (12mm x 15mm)
     """
 
     # Tray outer dimensions (fits inside center zone with clearance)
     _center_inner_left = DIVIDER_WET_X + WALL_INNER / 2 + TRAY_CLEARANCE
-    _center_inner_right = DIVIDER_DRY_X - WALL_INNER / 2 - TRAY_CLEARANCE
-    tray_w = _center_inner_right - _center_inner_left  # ~68mm
+    _center_inner_right = MEETING_W / 2 - WALL - TRAY_CLEARANCE
+    tray_w = _center_inner_right - _center_inner_left
     interior_y_min = -(MEETING_D / 2 - WALL - 2)
     interior_y_max = (MEETING_D / 2 - WALL - 2)
-    tray_d = (interior_y_max - interior_y_min) - 2 * TRAY_CLEARANCE  # ~134mm
+    tray_d = (interior_y_max - interior_y_min) - 2 * TRAY_CLEARANCE
     tray_cx = (_center_inner_left + _center_inner_right) / 2
-    tray_cy = 0  # centered
+    tray_cy = 0
 
-    # Tray base plate (floor + perimeter walls)
+    # Tray base plate
     tray = (
         cq.Workplane("XY")
         .box(tray_w, tray_d, TRAY_FLOOR)
@@ -997,8 +836,8 @@ def build_electronics_tray():
     perimeter_walls = perimeter_outer.cut(perimeter_inner)
     tray = tray.union(perimeter_walls)
 
-    # Support legs (4 corners, rest on divider ledges)
-    _leg_h = TRAY_Z - FLOOR_H - PUMP_BODY_H - 2  # gap from pump top to tray bottom
+    # Support legs (4 corners)
+    _leg_h = TRAY_Z - FLOOR_H - PUMP_BODY_H - 2
     _leg_left_x = _center_inner_left + TRAY_LEG_INSET
     _leg_right_x = _center_inner_right - TRAY_LEG_INSET
     _leg_front_y = interior_y_min + TRAY_CLEARANCE + TRAY_LEG_INSET
@@ -1017,7 +856,7 @@ def build_electronics_tray():
         )
         tray = tray.union(leg)
 
-    # Registration tabs (protrude from tray sides into divider wall slots)
+    # Registration tabs (left side into divider wall, right side into outer wall)
     _tab_y_positions = [interior_y_min + 20, interior_y_max - 20]
     for tab_y in _tab_y_positions:
         # Left side tab
@@ -1029,7 +868,7 @@ def build_electronics_tray():
         )
         tray = tray.union(left_tab)
 
-        # Right side tab
+        # Right side tab (into outer wall)
         right_tab = (
             cq.Workplane("XY")
             .box(TRAY_TAB_D, TRAY_TAB_W, TRAY_TAB_H)
@@ -1039,17 +878,15 @@ def build_electronics_tray():
         tray = tray.union(right_tab)
 
     # === BOARD POCKETS on tray floor ===
-    # All pockets are cut into the tray floor, boards drop in from the top.
-    # Y cursor starts from front of tray.
     _tray_y_min = tray_cy - tray_d / 2 + TRAY_WALL + 2
     _tray_y_max = tray_cy + tray_d / 2 - TRAY_WALL - 2
 
-    # Two columns: left (ESP32) and right (MOSFET + power + driver)
-    _gap = 3  # gap between columns
-    _left_col_w = ESP32_D + 2  # 30mm
+    # Two columns
+    _gap = 3
+    _left_col_w = ESP32_D + 2   # 30mm
     _right_col_w = MOSFET_BOARD_D + 2  # 28mm
-    _total_col_w = _left_col_w + _gap + _right_col_w  # 61mm
-    _col_offset = (tray_w - _total_col_w) / 2  # centering offset
+    _total_col_w = _left_col_w + _gap + _right_col_w
+    _col_offset = (tray_w - _total_col_w) / 2
     _left_col_x = tray_cx - tray_w / 2 + _col_offset + _left_col_w / 2
     _right_col_x = _left_col_x + _left_col_w / 2 + _gap + _right_col_w / 2
 
@@ -1137,12 +974,12 @@ def build_electronics_tray():
     y_cur_r += _pd_buck_d + 3
 
     # Right column: Atomizer driver pocket
-    atm_drv_tray_y = y_cur_r + ATOMIZER_DRIVER_W / 2  # 35mm along Y
+    atm_drv_tray_y = y_cur_r + ATOMIZER_DRIVER_W / 2
     atm_drv_pocket = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z)
         .center(_right_col_x, atm_drv_tray_y)
-        .rect(ATOMIZER_DRIVER_D + 2, ATOMIZER_DRIVER_W + 2)  # 27mm X, 37mm Y
+        .rect(ATOMIZER_DRIVER_D + 2, ATOMIZER_DRIVER_W + 2)
         .extrude(ATOMIZER_DRIVER_H + 1)
     )
     tray = tray.cut(atm_drv_pocket)
@@ -1163,7 +1000,7 @@ def build_electronics_tray():
 
     y_cur_r += ATOMIZER_DRIVER_W + 3
 
-    # Right column: BME280 pocket (tiny sensor)
+    # Right column: BME280 pocket
     bme_tray_y = y_cur_r + BME280_D / 2
     bme_pocket = (
         cq.Workplane("XY")
@@ -1174,11 +1011,7 @@ def build_electronics_tray():
     )
     tray = tray.cut(bme_pocket)
 
-    # === Tray wire channels (open-top grooves on tray floor) ===
-    # Simple routing: all boards connected by short channels on the tray.
-    # Power: PD/Buck → MOSFET → ESP32 (vertical along right column)
-    # Signal: ESP32 → MOSFET (vertical between columns)
-    # Atomizer: driver pocket → tray edge (wire drops to base floor)
+    # === Tray wire channels ===
     _tch_z = _tray_floor_z + CHANNEL_D / 2
 
     # Power bus along right column
@@ -1191,7 +1024,7 @@ def build_electronics_tray():
     )
     tray = tray.cut(pwr_bus)
 
-    # Signal bus: ESP32 → MOSFET (horizontal bridge)
+    # Signal bus: ESP32 -> MOSFET
     _sig_y_mid = (esp32_tray_y + mosfet_tray_y) / 2
     sig_bridge = (
         cq.Workplane("XY")
@@ -1201,7 +1034,7 @@ def build_electronics_tray():
     tray = tray.cut(sig_bridge)
 
     # Wire drop hole: atomizer wire drops from tray to base floor
-    _drop_hole_y = _tray_y_min + 3  # near front wall
+    _drop_hole_y = _tray_y_min + 3
     wire_drop = (
         cq.Workplane("XY")
         .workplane(offset=TRAY_Z)
@@ -1219,13 +1052,13 @@ def build_electronics_tray():
 # =============================================================================
 
 def build_top_shell():
-    """Three-zone functional lid matching base divider layout.
+    """Two-zone functional lid matching base divider layout.
 
-    MIST+FILL (left)   — mist chimney + chevron exhaust + water fill chute
-    TRANSIT   (center) — structural gap above pump row, cable routing
-    STORAGE   (right)  — compartment for accessories, spare bottles, etc.
+    MIST+FILL        (left)  — mist chimney + chevron exhaust + water fill chute
+    BOTTLES+STORAGE  (right) — 5 bottle wells (ceiling) + open storage below
 
     Lifts off for full access to everything in the base.
+    Bottles pre-loaded into ceiling wells before placing shell.
     """
 
     # --- Outer shell ---
@@ -1239,11 +1072,10 @@ def build_top_shell():
     ).translate((0, 0, WALL))
     shell = shell.cut(cavity)
 
-    # --- Internal divider walls (creating three zones) ---
-    # These mirror the base dividers so each top zone aligns with its base zone.
-    top_divider_h = TOP_H - WALL * 2 - 1  # slightly shorter than cavity
+    # --- Internal divider wall (one, creating two zones) ---
+    top_divider_h = TOP_H - WALL * 2 - 1
 
-    # Left divider (fill zone | mist zone)
+    # Left divider (mist+fill | bottles+storage)
     top_div_left = (
         cq.Workplane("XY")
         .workplane(offset=WALL)
@@ -1253,27 +1085,11 @@ def build_top_shell():
     )
     shell = shell.union(top_div_left)
 
-    # Right divider (mist zone | storage)
-    top_div_right = (
-        cq.Workplane("XY")
-        .workplane(offset=WALL)
-        .center(TOP_DIVIDER_DRY_X, 0)
-        .rect(WALL_INNER, MEETING_D - WALL * 2 - 2)
-        .extrude(top_divider_h)
-    )
-    shell = shell.union(top_div_right)
-
     # =============================================
     # MIST+FILL ZONE (left) — chimney, exhaust, fill chute
     # =============================================
 
     # --- Water fill chute (rear of left zone) ---
-    # Tapered funnel: wide opening at top, narrow channel at bottom.
-    # Water pours in from the top and drains into the wet zone reservoir
-    # when the shell sits on the base. The bottom of the chute is open
-    # (shell bottom is open at Z=0) so water falls straight through.
-
-    # Top opening (funnel mouth) — cut through the top ceiling
     fill_top_cut = (
         cq.Workplane("XY")
         .workplane(offset=TOP_H - WALL - 0.1)
@@ -1283,7 +1099,7 @@ def build_top_shell():
     )
     shell = shell.cut(fill_top_cut)
 
-    # Raised lip around the fill opening to prevent spills
+    # Raised lip around the fill opening
     fill_lip = (
         cq.Workplane("XY")
         .workplane(offset=TOP_H)
@@ -1294,9 +1110,7 @@ def build_top_shell():
     )
     shell = shell.union(fill_lip)
 
-    # Internal funnel walls — tapered from top opening down to narrower bottom.
-    # Build the funnel centered at origin, then translate to position.
-    # (CadQuery loft with off-center workplanes can double-offset — avoid it.)
+    # Internal funnel walls
     _funnel_outer = (
         cq.Workplane("XY")
         .workplane(offset=WALL)
@@ -1317,11 +1131,9 @@ def build_top_shell():
 
     funnel_walls = _funnel_outer.cut(_funnel_inner)
     shell = shell.union(funnel_walls)
-
-    # Cut the inner bore of the funnel to ensure it's clear
     shell = shell.cut(_funnel_inner)
 
-    # --- Mist chimney + exhaust (also in left zone, above atomizer) ---
+    # --- Mist chimney + exhaust ---
     chimney_outer = (
         cq.Workplane("XY")
         .workplane(offset=WALL)
@@ -1340,7 +1152,7 @@ def build_top_shell():
     )
     shell = shell.cut(chimney_bore)
 
-    # Chevron exhaust port (on top surface, above the chimney)
+    # Chevron exhaust port
     exhaust_pts = [
         (EXHAUST_POS_X, EXHAUST_POS_Y + EXHAUST_D / 2),
         (EXHAUST_POS_X + EXHAUST_W / 2, EXHAUST_POS_Y),
@@ -1378,81 +1190,52 @@ def build_top_shell():
         shell = shell.union(vane)
 
     # =============================================
-    # TRANSIT ZONE (center) — structural gap above pump row
+    # BOTTLES+STORAGE ZONE (right) — bottle wells + open storage
     # =============================================
-    # This zone provides structural rigidity and a cable routing path
-    # between the left (mist+fill) and right (storage) zones.
-    # The divider walls already define the boundaries. No additional
-    # features needed — it acts as an air gap / structural member.
 
-    # =============================================
-    # STORAGE ZONE (right) — accessory compartment
-    # =============================================
-    # Open-top compartment accessed by lifting the whole top shell off.
-    # Has a recessed lip around the top for a snap-fit dust lid (separate print).
+    # 5 bottle wells recessed 3mm into ceiling with retaining rings
+    _ceiling_z = TOP_H - WALL  # inner ceiling surface
+    _retainer_ring_h = 15      # ring hangs down from ceiling
+    _retainer_ring_wall = 2    # ring wall thickness
 
-    # Calculate storage compartment bounds (inside the right zone)
-    # Taper at top surface
-    _t_top = 1.0  # at the very top
-    _w_at_top = MEETING_W + _t_top * (TOP_W - MEETING_W)
-    _stor_left = TOP_DIVIDER_DRY_X + WALL_INNER / 2 + STORAGE_WALL
-    _stor_right = _w_at_top / 2 - WALL - STORAGE_WALL
-    _stor_front = -(MEETING_D / 2 - WALL * 2 - STORAGE_WALL)
-    _stor_back = MEETING_D / 2 - WALL * 2 - STORAGE_WALL
-    _stor_w = _stor_right - _stor_left
-    _stor_d = _stor_back - _stor_front
-    _stor_cx = (_stor_left + _stor_right) / 2
-    _stor_cy = (_stor_front + _stor_back) / 2
-
-    if _stor_w > 5 and _stor_d > 5:
-        # Storage cavity (hollowed interior of right zone)
-        stor_cavity = (
+    for by in bottle_y_positions:
+        # Well recess into ceiling (3mm deep)
+        well_recess = (
             cq.Workplane("XY")
-            .workplane(offset=WALL + 1)
-            .center(_stor_cx, _stor_cy)
-            .rect(_stor_w, _stor_d)
-            .extrude(TOP_H - WALL * 2 - 2)
+            .workplane(offset=_ceiling_z - BOTTLE_WELL_DEPTH)
+            .center(BOTTLE_ROW_X_TOP, by)
+            .circle(BOTTLE_WELL_DIA / 2)
+            .extrude(BOTTLE_WELL_DEPTH + 0.1)
         )
-        shell = shell.cut(stor_cavity)
+        shell = shell.cut(well_recess)
 
-        # Storage access opening on top surface
-        stor_top_cut = (
+        # Retaining ring (hangs down from ceiling)
+        ring_outer = (
             cq.Workplane("XY")
-            .workplane(offset=TOP_H - WALL - 0.1)
-            .center(_stor_cx, _stor_cy)
-            .rect(_stor_w - 2, _stor_d - 2)
-            .extrude(WALL + 0.2)
+            .workplane(offset=_ceiling_z - BOTTLE_WELL_DEPTH - _retainer_ring_h)
+            .center(BOTTLE_ROW_X_TOP, by)
+            .circle(BOTTLE_WELL_DIA / 2 + _retainer_ring_wall)
+            .extrude(_retainer_ring_h)
         )
-        shell = shell.cut(stor_top_cut)
-
-        # Lid recess lip — stepped edge around the opening for a dust cover
-        lid_recess = (
+        ring_inner = (
             cq.Workplane("XY")
-            .workplane(offset=TOP_H - STORAGE_LID_RECESS)
-            .center(_stor_cx, _stor_cy)
-            .rect(_stor_w + 2, _stor_d + 2)
-            .rect(_stor_w - 2, _stor_d - 2)
-            .extrude(STORAGE_LID_RECESS + 0.1)
+            .workplane(offset=_ceiling_z - BOTTLE_WELL_DEPTH - _retainer_ring_h - 0.1)
+            .center(BOTTLE_ROW_X_TOP, by)
+            .circle(BOTTLE_WELL_DIA / 2)
+            .extrude(_retainer_ring_h + 0.2)
         )
-        # Only cut this if it doesn't go outside the shell
-        shell = shell.cut(lid_recess)
+        retainer = ring_outer.cut(ring_inner)
+        shell = shell.union(retainer)
 
     # =============================================
     # CAPACITIVE TOUCH BUTTONS (top surface, front edge)
     # =============================================
-    # Two TTP223 modules glued to the underside of the top shell ceiling.
-    # Touch zones are indicated by shallow circular deboss marks on the
-    # outer top surface (cosmetic only — the capacitive sensing works
-    # through the 1.5mm PETG wall). Thin the ceiling locally to 1.5mm
-    # for reliable touch sensing through the plastic.
-
-    # Button positions: centered left-right on the front half of the top
-    btn_x_center = 0  # centered on X axis
+    btn_x_center = 0
     for btn_i in range(TOUCH_BTN_COUNT):
         bx = btn_x_center + (btn_i - (TOUCH_BTN_COUNT - 1) / 2) * TOUCH_BTN_SPACING
         by = TOUCH_BTN_Y
 
-        # Cosmetic circle deboss on outer surface (0.5mm deep indicator ring)
+        # Cosmetic circle deboss
         indicator = (
             cq.Workplane("XY")
             .workplane(offset=TOP_H - 0.5)
@@ -1463,18 +1246,17 @@ def build_top_shell():
         )
         shell = shell.cut(indicator)
 
-        # Thin the ceiling above the touch zone to 1.5mm for sensing
-        # (remove material from the underside to create a thinner ceiling)
+        # Thin the ceiling above the touch zone to 1.5mm
         thin_zone = (
             cq.Workplane("XY")
             .workplane(offset=TOP_H - WALL)
             .center(bx, by)
             .circle(TOUCH_ZONE_DIA / 2 + 2)
-            .extrude(WALL - 1.5)  # thin from WALL (3mm) to 1.5mm
+            .extrude(WALL - 1.5)
         )
         shell = shell.cut(thin_zone)
 
-        # TTP223 module pocket (recessed into the ceiling underside)
+        # TTP223 module pocket
         module_pocket = (
             cq.Workplane("XY")
             .workplane(offset=TOP_H - WALL - TOUCH_BTN_H - 0.5)
@@ -1515,33 +1297,23 @@ def build_top_shell():
 # =============================================================================
 # FITMENT COMPONENTS — simplified solid models for visual fit check
 # =============================================================================
-# These are NOT 3D-printed parts. They represent the real electronic and
-# mechanical components placed in their pockets so you can verify clearance.
-# Each is rendered with a distinct color to identify it in the viewer.
-
-# =============================================================================
-# FITMENT COMPONENTS — simplified solid models for visual fit check
-# =============================================================================
-# These are NOT 3D-printed parts. They represent the real electronic and
-# mechanical components placed in their pockets so you can verify clearance.
-# Each is rendered with a distinct color to identify it in the viewer.
 
 def build_components():
     """Build simplified solid models of all internal components at their
     installed positions. Returns a dict of {name: (solid, color)}.
 
-    V3.1 Layout:
+    V3.2 Layout:
       Wet zone: atomizer piezo disk, water
-      Center zone (lower): 5× pumps
+      Center zone (lower): 5x pumps
       Center zone (upper / tray): ESP32, MOSFET, PD+Buck, atomizer driver, BME280
-      Oil zone: 5× bottles
+      Top shell: 5x bottles hanging from ceiling wells
     """
 
     parts = {}
 
     # --- Recompute tray board positions (must match build_electronics_tray) ---
     _center_inner_left = DIVIDER_WET_X + WALL_INNER / 2 + TRAY_CLEARANCE
-    _center_inner_right = DIVIDER_DRY_X - WALL_INNER / 2 - TRAY_CLEARANCE
+    _center_inner_right = MEETING_W / 2 - WALL - TRAY_CLEARANCE
     tray_w = _center_inner_right - _center_inner_left
     tray_cx = (_center_inner_left + _center_inner_right) / 2
     interior_y_min = -(MEETING_D / 2 - WALL - 2)
@@ -1577,7 +1349,7 @@ def build_components():
     # WET ZONE components
     # =============================================
 
-    # Atomizer piezo disk (20mm dia × 3mm, mounted flush in floor)
+    # Atomizer piezo disk
     atomizer_disk = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H - 1)
@@ -1587,7 +1359,7 @@ def build_components():
     )
     parts["atomizer_disk"] = (atomizer_disk, (0.75, 0.75, 0.15, 0.95))  # gold
 
-    # Water (simplified as a transparent blue block filling wet zone)
+    # Water (transparent blue block filling wet zone)
     water_level = 40
     _wet_left_x = -(MEETING_W / 2 - WALL)
     _wet_width = abs(DIVIDER_WET_X - _wet_left_x) - WALL_INNER
@@ -1603,7 +1375,6 @@ def build_components():
     # CENTER ZONE — Lower level (pumps)
     # =============================================
 
-    # 5× WX3 micro peristaltic pumps
     for i, py in enumerate(pump_y_positions):
         pump = (
             cq.Workplane("XY")
@@ -1618,7 +1389,7 @@ def build_components():
     # CENTER ZONE — Upper level (tray electronics)
     # =============================================
 
-    # ESP32 DevKit (28mm X × 55mm Y × 13mm Z) — left column
+    # ESP32 DevKit
     esp32 = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z + 0.5)
@@ -1628,7 +1399,7 @@ def build_components():
     )
     parts["esp32"] = (esp32, (0.1, 0.35, 0.7, 0.95))  # blue PCB
 
-    # 8-channel MOSFET board (26mm X × 50mm Y × 12mm Z) — right column
+    # 8-channel MOSFET board
     mosfet_board = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z + 0.5)
@@ -1638,7 +1409,7 @@ def build_components():
     )
     parts["mosfet_board"] = (mosfet_board, (0.15, 0.55, 0.15, 0.9))  # green
 
-    # Buck converter (22×17mm, on tray floor, right column)
+    # Buck converter
     buck_conv = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z + 0.5)
@@ -1648,7 +1419,7 @@ def build_components():
     )
     parts["buck_converter"] = (buck_conv, (0.5, 0.1, 0.5, 0.95))  # purple PCB
 
-    # CH224K PD trigger (24×18mm, stacked on top of buck converter)
+    # CH224K PD trigger (stacked on buck)
     pd_trigger = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z + 0.5 + BUCK_CONV_H + 1)
@@ -1658,7 +1429,7 @@ def build_components():
     )
     parts["pd_trigger"] = (pd_trigger, (0.7, 0.1, 0.1, 0.95))  # red PCB
 
-    # Atomizer driver board (25mm X × 35mm Y) — right column
+    # Atomizer driver board
     atomizer_driver = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z + 0.5)
@@ -1668,7 +1439,7 @@ def build_components():
     )
     parts["atomizer_driver"] = (atomizer_driver, (0.2, 0.6, 0.2, 0.95))  # green PCB
 
-    # BME280 sensor (15×12mm) — right column
+    # BME280 sensor
     bme280 = (
         cq.Workplane("XY")
         .workplane(offset=_tray_floor_z + 0.5)
@@ -1679,26 +1450,31 @@ def build_components():
     parts["bme280"] = (bme280, (0.3, 0.3, 0.8, 0.95))  # light blue
 
     # =============================================
-    # OIL ZONE — Bottles
+    # TOP SHELL — Bottles (hanging from ceiling wells)
     # =============================================
 
-    # 5× 15ml essential oil bottles (cylinder body + smaller cap)
+    _ceiling_z_top = BASE_H + TOP_H - WALL  # top shell ceiling in assembly coords
     for i, by in enumerate(bottle_y_positions):
         bottle_body_h = BOTTLE_HEIGHT - 15
-        body = (
-            cq.Workplane("XY")
-            .workplane(offset=FLOOR_H + BOTTLE_WELL_DEPTH)
-            .center(BOTTLE_ROW_X, by)
-            .circle(BOTTLE_DIA / 2)
-            .extrude(bottle_body_h)
-        )
         cap_h = 15
+        # Bottle hangs cap-down: cap at top (near ceiling), body below
+        cap_top_z = _ceiling_z_top - BOTTLE_WELL_DEPTH
+        cap_bot_z = cap_top_z - cap_h
+        body_bot_z = cap_bot_z - bottle_body_h
+
         cap = (
             cq.Workplane("XY")
-            .workplane(offset=FLOOR_H + BOTTLE_WELL_DEPTH + bottle_body_h)
-            .center(BOTTLE_ROW_X, by)
+            .workplane(offset=cap_bot_z)
+            .center(BOTTLE_ROW_X_TOP, by)
             .circle(BOTTLE_CAP_DIA / 2)
             .extrude(cap_h)
+        )
+        body = (
+            cq.Workplane("XY")
+            .workplane(offset=body_bot_z)
+            .center(BOTTLE_ROW_X_TOP, by)
+            .circle(BOTTLE_DIA / 2)
+            .extrude(bottle_body_h)
         )
         bottle = body.union(cap)
         colors = [
@@ -1748,13 +1524,10 @@ def build_components():
     # =============================================
     # WIRE CHANNEL VISUALIZATION (base floor only)
     # =============================================
-    # Simplified for V3.1 — only atomizer spur on base floor.
-    # Tray wiring is visible from board arrangement on the tray.
-
     _ch_z = FLOOR_H + CHANNEL_D / 2
     _atm_spur_y = -(MEETING_D / 2 - WALL - 2) + 3
 
-    # Atomizer spur segment 1: center zone floor (magenta)
+    # Atomizer spur segment 1: center zone floor
     _as1_xs = DIVIDER_WET_X + WALL_INNER / 2 + 1
     _as1_xe = PUMP_CENTER_X
     atm_s1_vis = (
@@ -1764,7 +1537,7 @@ def build_components():
     )
     parts["wire_atm_spur_1"] = (atm_s1_vis, (0.85, 0.15, 0.85, 0.85))
 
-    # Atomizer spur segment 2: wet zone horizontal (magenta)
+    # Atomizer spur segment 2: wet zone horizontal
     _as2_xs = ATOMIZER_POS_X
     _as2_xe = DIVIDER_WET_X - WALL_INNER / 2 - 1
     atm_s2_vis = (
@@ -1774,7 +1547,7 @@ def build_components():
     )
     parts["wire_atm_spur_2"] = (atm_s2_vis, (0.85, 0.15, 0.85, 0.85))
 
-    # Atomizer spur segment 3: wet zone vertical turn to atomizer (magenta)
+    # Atomizer spur segment 3: wet zone vertical turn to atomizer
     atm_s3_vis = (
         cq.Workplane("XY")
         .box(CHANNEL_W - 0.5, abs(ATOMIZER_POS_Y - _atm_spur_y), CHANNEL_D - 0.5)
@@ -1785,15 +1558,9 @@ def build_components():
     return parts
 
 
-
 # =============================================================================
 # ASSEMBLY — color-coded per zone for visibility
 # =============================================================================
-#
-# Color legend:
-#   Base:  teal (wet zone), amber (center zone), purple (oil zone)
-#   Tray:  silver (electronics tray)
-#   Top:   blue (mist+fill zone), teal (transit zone), orange (storage)
 
 base = build_base()
 electronics_tray = build_electronics_tray()
@@ -1805,14 +1572,11 @@ show_object(base, name="base",
             options={"color": (0.12, 0.12, 0.15, 0.55)})
 show_object(electronics_tray, name="electronics_tray",
             options={"color": (0.6, 0.6, 0.65, 0.7)})  # silver
-
-# Show top shell with distinct color
 show_object(top_shell, name="top_shell",
             options={"color": (0.18, 0.18, 0.22, 0.55)})
 
-# --- Zone indicator markers (thin colored slabs on the floor of each zone) ---
-# These provide clear visual color coding without splitting the geometry.
-marker_h = 1.5  # thin slab
+# --- Zone indicator markers ---
+marker_h = 1.5
 
 # Base wet zone marker (teal)
 wet_marker_w = abs(DIVIDER_WET_X - (-(MEETING_W / 2 - WALL)))
@@ -1825,7 +1589,7 @@ show_object(wet_marker, name="zone_wet",
             options={"color": (0.08, 0.72, 0.65, 0.85)})  # teal
 
 # Base center zone marker (amber)
-center_marker_w = DIVIDER_DRY_X - DIVIDER_WET_X - WALL_INNER
+center_marker_w = (MEETING_W / 2 - WALL) - DIVIDER_WET_X - WALL_INNER / 2
 center_marker = (
     cq.Workplane("XY")
     .box(center_marker_w - 2, MEETING_D - WALL * 2 - 8, marker_h)
@@ -1834,18 +1598,7 @@ center_marker = (
 show_object(center_marker, name="zone_center",
             options={"color": (0.92, 0.69, 0.13, 0.85)})  # amber
 
-# Base oil zone marker (purple)
-oil_marker_w = abs((MEETING_W / 2 - WALL) - DIVIDER_DRY_X) - WALL_INNER / 2
-oil_marker = (
-    cq.Workplane("XY")
-    .box(oil_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
-    .translate(((DIVIDER_DRY_X + MEETING_W / 2 - WALL) / 2 + WALL_INNER / 4, 0,
-                FLOOR_H + marker_h / 2))
-)
-show_object(oil_marker, name="zone_oil",
-            options={"color": (0.58, 0.27, 0.88, 0.85)})  # purple
-
-# Top mist+fill zone marker (blue) — on the ceiling inside
+# Top mist+fill zone marker (blue)
 mist_fill_marker_w = abs(TOP_DIVIDER_WET_X - (-(MEETING_W / 2 - WALL)))
 mist_fill_marker = (
     cq.Workplane("XY")
@@ -1856,30 +1609,18 @@ mist_fill_marker = (
 show_object(mist_fill_marker, name="zone_mist_fill",
             options={"color": (0.15, 0.56, 0.94, 0.85)})  # blue
 
-# Top transit zone marker (teal)
-transit_marker_w = TOP_DIVIDER_DRY_X - TOP_DIVIDER_WET_X - WALL_INNER
-transit_marker = (
+# Top bottles+storage zone marker (orange)
+bottles_marker_w = (MEETING_W / 2 - WALL) - TOP_DIVIDER_WET_X - WALL_INNER / 2
+bottles_marker = (
     cq.Workplane("XY")
-    .box(transit_marker_w - 2, MEETING_D - WALL * 2 - 8, marker_h)
-    .translate(((TOP_DIVIDER_WET_X + TOP_DIVIDER_DRY_X) / 2, 0,
+    .box(bottles_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
+    .translate(((TOP_DIVIDER_WET_X + WALL_INNER / 2 + MEETING_W / 2 - WALL) / 2, 0,
                 BASE_H + TOP_H - WALL - marker_h / 2 - 1))
 )
-show_object(transit_marker, name="zone_transit",
-            options={"color": (0.08, 0.72, 0.65, 0.85)})  # teal
-
-# Top storage zone marker (orange)
-stor_marker_w = abs((MEETING_W / 2 - WALL) - TOP_DIVIDER_DRY_X) - WALL_INNER / 2
-stor_marker = (
-    cq.Workplane("XY")
-    .box(stor_marker_w - 4, MEETING_D - WALL * 2 - 8, marker_h)
-    .translate(((TOP_DIVIDER_DRY_X + MEETING_W / 2 - WALL) / 2 + WALL_INNER / 4, 0,
-                BASE_H + TOP_H - WALL - marker_h / 2 - 1))
-)
-show_object(stor_marker, name="zone_storage",
+show_object(bottles_marker, name="zone_bottles_storage",
             options={"color": (0.96, 0.49, 0.13, 0.85)})  # orange
 
-# --- Button color indicators (colored discs on top shell surface) ---
-# Power button — RED disc
+# --- Button color indicators ---
 btn_x_center = 0
 power_btn_x = btn_x_center + (0 - (TOUCH_BTN_COUNT - 1) / 2) * TOUCH_BTN_SPACING
 mist_btn_x = btn_x_center + (1 - (TOUCH_BTN_COUNT - 1) / 2) * TOUCH_BTN_SPACING
@@ -1894,7 +1635,6 @@ power_btn_marker = (
 show_object(power_btn_marker, name="btn_power",
             options={"color": (0.9, 0.15, 0.15, 0.95)})  # red
 
-# Mist intensity button — CYAN disc
 mist_btn_marker = (
     cq.Workplane("XY")
     .workplane(offset=BASE_H + TOP_H + 0.1)
@@ -1918,14 +1658,17 @@ for comp_name, (comp_solid, comp_color) in components.items():
 
 _wet_left = -(MEETING_W / 2 - WALL)
 _wet_right = DIVIDER_WET_X
-_center_left = DIVIDER_WET_X
-_center_right = DIVIDER_DRY_X
-_oil_left = DIVIDER_DRY_X + WALL_INNER / 2
-_oil_right = MEETING_W / 2 - WALL
+_center_left = DIVIDER_WET_X + WALL_INNER / 2
+_center_right = MEETING_W / 2 - WALL
 
 print("=" * 60)
-print("Somni Oil Diffuser V3.1 — Night City")
+print("Somni Oil Diffuser V3.2 — Night City")
 print("=" * 60)
+print()
+print("Three-part: base (160x160mm) + electronics tray + top shell")
+print("Zones: wet | center (2-level: pumps + electronics tray)")
+print("Top shell: mist+fill | bottles+storage")
+print("Assembly: 1) pumps -> 2) tray -> 3) boards -> 4) top shell (bottles pre-loaded)")
 print()
 print("--- BOM (verified dimensions) ---")
 print(f"Pumps:       {PUMP_COUNT}x JIHPUMP WX3 ({PUMP_BODY_W}x{PUMP_BODY_D}x{PUMP_BODY_H}mm, 5V)")
@@ -1933,7 +1676,7 @@ print(f"Atomizer:    20mm/113KHz piezo + {ATOMIZER_DRIVER_W}x{ATOMIZER_DRIVER_D}
 print(f"MCU:         ESP32 DevKit ({ESP32_W}x{ESP32_D}mm)")
 print(f"MOSFETs:     8-ch board ({MOSFET_BOARD_W}x{MOSFET_BOARD_D}x{MOSFET_BOARD_H}mm, using {MOSFET_COUNT} ch)")
 print(f"PD trigger:  CH224K ({PD_TRIGGER_W}x{PD_TRIGGER_D}mm)")
-print(f"Buck conv:   MP1584EN ({BUCK_CONV_W}x{BUCK_CONV_D}mm, 12V→5V)")
+print(f"Buck conv:   MP1584EN ({BUCK_CONV_W}x{BUCK_CONV_D}mm, 12V->5V)")
 print(f"Buttons:     {TOUCH_BTN_COUNT}x TTP223 capacitive ({TOUCH_BTN_W}x{TOUCH_BTN_D}mm)")
 print(f"LEDs:        WS2812B strip ({LED_CHANNEL_W}mm wide)")
 print()
@@ -1949,15 +1692,10 @@ print(f"WET ZONE:    X={_wet_left:.1f} to {_wet_right}mm ({_wet_right - _wet_lef
 print(f"  Reservoir: depth={RESERVOIR_DEPTH:.1f}mm")
 print(f"  Atomizer:  {ATOMIZER_MOUNT_DIA}mm at ({ATOMIZER_POS_X}, {ATOMIZER_POS_Y})")
 print()
-print(f"CENTER ZONE: X={_center_left} to {_center_right}mm ({_center_right - _center_left}mm wide)  [AMBER]")
+print(f"CENTER ZONE: X={_center_left:.1f} to {_center_right:.1f}mm ({_center_right - _center_left:.0f}mm wide)  [AMBER]")
 print(f"  Lower:     {PUMP_COUNT}x WX3 pumps at Y={[f'{y:.0f}' for y in pump_y_positions]}")
 print(f"  Upper:     Electronics tray (lift-out, Z={TRAY_Z}mm)")
-print(f"  Tray ledges on both divider walls, 4 registration tab slots")
-print()
-print(f"OIL ZONE:    X={_oil_left:.1f} to {_oil_right:.1f}mm ({_oil_right - _oil_left:.0f}mm wide)  [PURPLE]")
-print(f"  Bottles:   {BOTTLE_COUNT}x {BOTTLE_DIA}mm dia wells at X={BOTTLE_ROW_X:.1f}")
-print(f"             Y={[f'{y:.0f}' for y in bottle_y_positions]}")
-print(f"  Spill-isolated from electronics (no PCBs in this zone)")
+print(f"  Tray ledges on left divider + right outer wall, 4 registration tab slots")
 print()
 print("--- Electronics Tray (lift-out shelf) ---")
 print(f"  Left col:  ESP32 ({ESP32_D}x{ESP32_W}mm)")
@@ -1971,20 +1709,18 @@ print("--- Top Shell Zones (left to right) ---")
 print(f"MIST+FILL:   above wet zone  [BLUE]")
 print(f"  Chimney:    {MIST_CHANNEL_DIA}mm bore at ({MIST_POS_X}, {MIST_POS_Y})")
 print(f"  Exhaust:    {EXHAUST_W}x{EXHAUST_D}mm chevron, 3 vanes")
-print(f"  Fill chute: {FILL_CHUTE_TOP_W}x{FILL_CHUTE_TOP_D}mm top → {FILL_CHUTE_BOT_W}x{FILL_CHUTE_BOT_D}mm bottom")
+print(f"  Fill chute: {FILL_CHUTE_TOP_W}x{FILL_CHUTE_TOP_D}mm top -> {FILL_CHUTE_BOT_W}x{FILL_CHUTE_BOT_D}mm bottom")
 print()
-print(f"TRANSIT:     above center zone  [TEAL]")
-print(f"  Structural gap, cable routing")
-print()
-print(f"STORAGE:     above oil zone  [ORANGE]")
-print(f"  Compartment for spare bottles, accessories, etc.")
-print(f"  Lid recess: {STORAGE_LID_RECESS}mm step for snap-fit dust cover")
+print(f"BOTTLES+STORAGE: above center zone  [ORANGE]")
+print(f"  Bottles:   {BOTTLE_COUNT}x {BOTTLE_DIA}mm dia wells at X={BOTTLE_ROW_X_TOP:.1f}")
+print(f"             Y={[f'{y:.0f}' for y in bottle_y_positions]}")
+print(f"  Bottles hang cap-down from ceiling (3mm recess + 15mm retaining rings)")
 print()
 print(f"--- Assembly (building Legos) ---")
 print(f"1. Drop pumps into center zone pockets (shelf ledges hold them)")
-print(f"2. Set electronics tray on divider ledges (tabs locate it)")
+print(f"2. Set electronics tray on ledges (left divider + right wall, tabs locate it)")
 print(f"3. Drop boards into tray pockets (rail slots + snap tabs)")
-print(f"4. Drop bottles into oil zone wells (swing latches lock them)")
+print(f"4. Load bottles cap-down into top shell ceiling wells")
 print(f"5. Place top shell (magnets + pins align it)")
 print()
 print(f"Print bed:   {BASE_W}x{BASE_D}mm fits QIDI Q2 (245x255mm)")
