@@ -339,6 +339,127 @@ def build_base():
     )
     base = base.union(divider)
 
+    # --- Atomizer mount (wet zone) ---
+    # Circular pocket through the reservoir floor for the piezo disk + wiring
+    atomizer_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=-0.1)
+        .center(ATOMIZER_POS_X, ATOMIZER_POS_Y)
+        .circle(ATOMIZER_MOUNT_DIA / 2)
+        .extrude(FLOOR_H + 0.2)
+    )
+    base = base.cut(atomizer_pocket)
+
+    # Atomizer driver board pocket (dry zone, near divider)
+    driver_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(DIVIDER_X + WALL_INNER / 2 + 5 + ATOMIZER_DRIVER_W / 2, ATOMIZER_POS_Y)
+        .rect(ATOMIZER_DRIVER_W, ATOMIZER_DRIVER_D)
+        .extrude(8)
+    )
+    base = base.cut(driver_pocket)
+
+    # --- Peristaltic pump pockets (5x along divider wall) ---
+    pump_y_start = -(PUMP_COUNT - 1) / 2 * PUMP_SPACING
+    for i in range(PUMP_COUNT):
+        py = pump_y_start + i * PUMP_SPACING
+        pump_pocket = (
+            cq.Workplane("XY")
+            .workplane(offset=FLOOR_H)
+            .center(DIVIDER_X - WALL_INNER / 2 - PUMP_BODY_W / 2 - 1, py)
+            .rect(PUMP_BODY_W, PUMP_BODY_D)
+            .extrude(PUMP_BODY_H + 2)
+        )
+        base = base.cut(pump_pocket)
+
+    # --- Electronics bay pockets (dry zone, right of divider) ---
+    # Dry zone center X: midpoint between divider right edge and right inner wall
+    dry_center_x = DIVIDER_X + WALL_INNER / 2 + (MEETING_W / 2 - WALL - DIVIDER_X - WALL_INNER / 2) / 2
+
+    # ESP32 pocket (toward rear of dry zone)
+    esp32_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(dry_center_x, 30)
+        .rect(ESP32_W, ESP32_D)
+        .extrude(ESP32_H + 2)
+    )
+    base = base.cut(esp32_pocket)
+
+    # 5 MOSFET module pockets in a row (below ESP32)
+    mosfet_row_y = 0
+    mosfet_start_x = dry_center_x - (4 * (MOSFET_W + 2)) / 2
+    for i in range(5):
+        mx = mosfet_start_x + i * (MOSFET_W + 2)
+        mosfet_pocket = (
+            cq.Workplane("XY")
+            .workplane(offset=FLOOR_H)
+            .center(mx, mosfet_row_y)
+            .rect(MOSFET_W, MOSFET_D)
+            .extrude(MOSFET_H + 2)
+        )
+        base = base.cut(mosfet_pocket)
+
+    # PD trigger pocket (near rear wall in dry zone)
+    pd_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(dry_center_x, BASE_D / 2 - WALL - PD_TRIGGER_D / 2 - 5)
+        .rect(PD_TRIGGER_W, PD_TRIGGER_D)
+        .extrude(PD_TRIGGER_H + 2)
+    )
+    base = base.cut(pd_pocket)
+
+    # --- USB-C port cutout (rear wall, near PD trigger) ---
+    usbc_cutout = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H + PD_TRIGGER_H / 2)
+        .center(dry_center_x, BASE_D / 2)
+        .rect(USBC_PORT_W, WALL + 2)
+        .extrude(USBC_PORT_H)
+    )
+    base = base.cut(usbc_cutout)
+
+    # --- Rubber feet (4 circular pockets on the bottom) ---
+    foot_coords = [
+        (-BASE_W / 2 + FOOT_INSET, -BASE_D / 2 + FOOT_INSET),
+        ( BASE_W / 2 - FOOT_INSET, -BASE_D / 2 + FOOT_INSET),
+        (-BASE_W / 2 + FOOT_INSET,  BASE_D / 2 - FOOT_INSET),
+        ( BASE_W / 2 - FOOT_INSET,  BASE_D / 2 - FOOT_INSET),
+    ]
+    for fx, fy in foot_coords:
+        foot_pocket = (
+            cq.Workplane("XY")
+            .workplane(offset=-0.1)
+            .center(fx, fy)
+            .circle(FOOT_DIA / 2)
+            .extrude(FOOT_DEPTH + 0.1)
+        )
+        base = base.cut(foot_pocket)
+
+    # --- LED strip channel (shallow channel inside base wall near top) ---
+    # Runs along the right and front inner walls behind where hex mesh will go
+    led_z = BASE_H - WALL - LED_CHANNEL_D - 2
+    # Right wall channel
+    led_right = (
+        cq.Workplane("XY")
+        .workplane(offset=led_z)
+        .center(MEETING_W / 2 - WALL - LED_CHANNEL_D / 2, 0)
+        .rect(LED_CHANNEL_D, BASE_D - WALL * 2 - 10)
+        .extrude(LED_CHANNEL_W)
+    )
+    base = base.cut(led_right)
+    # Front wall channel
+    led_front = (
+        cq.Workplane("XY")
+        .workplane(offset=led_z)
+        .center(0, -(MEETING_D / 2 - WALL - LED_CHANNEL_D / 2))
+        .rect(BASE_W - WALL * 2 - 10, LED_CHANNEL_D)
+        .extrude(LED_CHANNEL_W)
+    )
+    base = base.cut(led_front)
+
     return base
 
 
