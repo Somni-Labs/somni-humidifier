@@ -461,6 +461,18 @@ def build_base():
         )
         base = base.cut(pump_pocket)
 
+        # Shelf ledges on ±Y walls of pump pocket (anti-vibration)
+        for _ledge_side in [-1, 1]:
+            ledge = (
+                cq.Workplane("XY")
+                .workplane(offset=FLOOR_H)
+                .center(PUMP_CENTER_X,
+                        py + _ledge_side * (PUMP_BODY_D / 2 - PUMP_LEDGE_LIP / 2))
+                .rect(PUMP_BODY_W - 4, PUMP_LEDGE_LIP)
+                .extrude(PUMP_LEDGE_H)
+            )
+            base = base.union(ledge)
+
     # Tube pass-through holes in LEFT divider (pump output → reservoir)
     # One per pump, at the top of the divider
     for py in pump_y_positions:
