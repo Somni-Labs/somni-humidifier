@@ -188,7 +188,7 @@ TOUCH_BTN_H = 2
 TOUCH_ZONE_DIA = 20
 TOUCH_BTN_COUNT = 2
 TOUCH_BTN_SPACING = 35
-TOUCH_BTN_Y = -40
+TOUCH_BTN_Y = -25            # was -40, moved inward to fit 130x104 footprint
 
 # --- USB-C port ---
 USBC_PORT_W = 12
@@ -220,7 +220,7 @@ FILL_CHUTE_TOP_D = 30
 FILL_CHUTE_BOT_W = 14
 FILL_CHUTE_BOT_D = 20
 FILL_CHUTE_POS_X = ATOMIZER_POS_X
-FILL_CHUTE_POS_Y = 30
+FILL_CHUTE_POS_Y = 18        # was 30, moved inward to fit 130x104 footprint
 FILL_CHUTE_LIP_H = 3
 
 # --- Top shell zone divider ---
