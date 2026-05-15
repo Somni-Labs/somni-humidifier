@@ -8,7 +8,7 @@ REAL-WORLD BOM — all component dimensions verified from sourcing research:
   Pumps:     5× JIHPUMP WX3 micro peristaltic (23×35×25mm, 3.7-6V)
   Atomizer:  20mm/113KHz piezo + 35×25mm driver board (5V, 250-400mA)
   MCU:       ESP32 DevKit (55×28mm) — WiFi, 6× GPIO for MOSFETs
-  MOSFETs:   6× IRLZ44N/D4184 modules (25×20mm, 3.3V logic-level)
+  MOSFETs:   8-ch MOSFET driver board (50×26mm, 3.3V logic-level, using 6 ch)
   Power:     USB-C → CH224K PD trigger (24×18mm) → 12V → MP1584EN buck (22×17mm) → 5V
   LEDs:      WS2812B strip (12mm wide, 5V), continuous perimeter loop
   Buttons:   2× TTP223 capacitive touch (11×15mm) — power + mist intensity
@@ -147,25 +147,27 @@ CLIP_CATCH_H = 8             # height of the catch hook on the opposite side
 TUBE_CLIP_DIA = 6            # outer diameter of tube guide
 TUBE_CLIP_H = 5              # height of guide post
 
-# --- Electronics bay (dry zone, behind bottles) ---
-ESP32_W = 55                 # ESP32 DevKit V1 (verified)
-ESP32_D = 28
+# --- Electronics bay (dry zone, RIGHT column beside bottles) ---
+# Bottles occupy X ≈ 24–53. Electronics go in a column at X ≈ 56–84.
+# All boards stacked along Y (front→rear) in that ~28mm-wide column.
+ESP32_W = 55                 # ESP32 DevKit V1 long dimension
+ESP32_D = 28                 # ESP32 DevKit V1 short dimension
 ESP32_H = 13
-MOSFET_W = 25                # IRLZ44N / D4184 module (verified)
-MOSFET_D = 20
-MOSFET_H = 15
-MOSFET_COUNT = 6             # 5 pumps + 1 atomizer
-PD_TRIGGER_W = 24            # CH224K module (verified, was 30)
+# Single 8-channel MOSFET board replaces 6 individual 25×20mm modules.
+# Common "8CH 3.3V/5V logic-level MOSFET driver" from AliExpress/Amazon.
+MOSFET_BOARD_W = 50          # board long dimension (placed along Y)
+MOSFET_BOARD_D = 26          # board short dimension (across X, fits in 28mm col)
+MOSFET_BOARD_H = 12
+MOSFET_COUNT = 6             # using 6 of 8 channels
+PD_TRIGGER_W = 24            # CH224K module (verified)
 PD_TRIGGER_D = 18
 PD_TRIGGER_H = 8
-BUCK_CONV_W = 22             # MP1584EN buck converter (NEW, verified)
+BUCK_CONV_W = 22             # MP1584EN buck converter (verified)
 BUCK_CONV_D = 17
 BUCK_CONV_H = 5
 BME280_W = 15
 BME280_D = 12
 BME280_H = 5
-# Electronics sit behind the bottle row (positive Y area of dry zone)
-ELECTRONICS_ROW_X = BOTTLE_ROW_X + 20  # offset right from bottles
 
 # --- Capacitive touch buttons (top shell surface) ---
 TOUCH_BTN_W = 15             # TTP223 module width (verified)
@@ -544,90 +546,81 @@ def build_base():
         base = base.union(clip)
         base = base.cut(clip_bore)
 
-    # Electronics layout in the dry zone (rear/right area)
+    # === ELECTRONICS COLUMN (right side of dry zone, X ≈ 55–90) ===
+    # 34.6mm-wide column to the right of bottles, stacked along Y.
+    # Compact layout: PD+Buck Z-stacked (front), MOSFET board (mid), ESP32 (rear).
+    # Atomizer driver relocated to wet zone (near atomizer).
+    # BME280 mounted on right divider wall (tiny sensor, doesn't need floor space).
     dry_left = DIVIDER_DRY_X + WALL_INNER / 2
     dry_right = MEETING_W / 2 - WALL
-    dry_center_x = (dry_left + dry_right) / 2
+    _bottle_right = BOTTLE_ROW_X + BOTTLE_WELL_DIA / 2 + 4  # bottle + retainer + catch
+    elec_col_x = (_bottle_right + dry_right) / 2
+    interior_y_min = -(MEETING_D / 2 - WALL - 2)
+    y_cursor = interior_y_min  # start from front wall
 
-    # ESP32 pocket (rear of dry zone)
+    # PD trigger + Buck converter Z-STACKED (buck on floor, PD on top)
+    # Combined pocket: 24mm X (PD is wider) × 18mm Y (PD is deeper) × 15mm Z
+    _pd_buck_w = max(PD_TRIGGER_W, BUCK_CONV_W)   # 24mm
+    _pd_buck_d = max(PD_TRIGGER_D, BUCK_CONV_D)   # 18mm
+    _pd_buck_h = BUCK_CONV_H + PD_TRIGGER_H + 2   # 5+8+2 = 15mm
+    pd_buck_y = y_cursor + _pd_buck_d / 2
+    pd_buck_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(elec_col_x, pd_buck_y)
+        .rect(_pd_buck_w + 2, _pd_buck_d + 2)
+        .extrude(_pd_buck_h)
+    )
+    base = base.cut(pd_buck_pocket)
+    y_cursor += _pd_buck_d + 3
+
+    # 8-channel MOSFET board (50×26mm, long dim along Y, short dim across X)
+    mosfet_y = y_cursor + MOSFET_BOARD_W / 2  # 50mm along Y
+    mosfet_pocket = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(elec_col_x, mosfet_y)
+        .rect(MOSFET_BOARD_D + 2, MOSFET_BOARD_W + 2)  # 28mm X, 52mm Y
+        .extrude(MOSFET_BOARD_H + 2)
+    )
+    base = base.cut(mosfet_pocket)
+    y_cursor += MOSFET_BOARD_W + 3
+
+    # ESP32 DevKit (55×28mm, long dim along Y, short dim across X)
+    esp32_y = y_cursor + ESP32_W / 2  # 55mm along Y
     esp32_pocket = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H)
-        .center(dry_center_x, 45)
-        .rect(ESP32_D, ESP32_W)  # rotated to fit width
+        .center(elec_col_x, esp32_y)
+        .rect(ESP32_D + 2, ESP32_W + 2)  # 30mm X, 57mm Y
         .extrude(ESP32_H + 2)
     )
     base = base.cut(esp32_pocket)
 
-    # 6 MOSFET pockets: 5 for pumps + 1 for atomizer
-    # Arranged in two columns of 3, between bottles and ESP32
-    mosfet_x_left = dry_center_x - MOSFET_W / 2 - 2
-    mosfet_x_right = dry_center_x + MOSFET_W / 2 + 2
-    mosfet_y_positions = [-(MOSFET_COUNT - 1) / 2 * (MOSFET_D + 3) + i * (MOSFET_D + 3)
-                          for i in range(MOSFET_COUNT)]
-    # Place in two columns of 3
-    for i in range(MOSFET_COUNT):
-        mx = mosfet_x_left if i < 3 else mosfet_x_right
-        my = mosfet_y_positions[i % 3] if i >= 3 else mosfet_y_positions[i]
-        mosfet_pocket = (
-            cq.Workplane("XY")
-            .workplane(offset=FLOOR_H)
-            .center(mx, my)
-            .rect(MOSFET_W, MOSFET_D)
-            .extrude(MOSFET_H + 2)
-        )
-        base = base.cut(mosfet_pocket)
+    # BME280 sensor — sits on top of MOSFET board (Z-stacked in electronics column).
+    # Tiny board (15×12×5mm) rests above the MOSFET (Z=FLOOR_H+MOSFET_BOARD_H+2).
+    # No separate pocket needed — it just sits on the MOSFET board surface.
+    # The combined height (MOSFET 12mm + gap 2mm + BME280 5mm = 19mm) is well
+    # within the 64mm usable height.
 
-    # PD trigger pocket (CH224K, 24×18mm — rear of dry zone)
-    pd_x = dry_center_x + 15
-    pd_y = MEETING_D / 2 - WALL - PD_TRIGGER_D / 2 - 5
-    pd_pocket = (
+    # Atomizer driver pocket — wet zone floor, rear area (near atomizer)
+    # Driver board (35×25mm) placed flat on floor behind the atomizer.
+    _atm_drv_x = ATOMIZER_POS_X
+    _atm_drv_y = ATOMIZER_POS_Y + ATOMIZER_MOUNT_DIA / 2 + 5 + ATOMIZER_DRIVER_D / 2
+    atm_driver_pocket = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H)
-        .center(pd_x, pd_y)
-        .rect(PD_TRIGGER_W, PD_TRIGGER_D)
-        .extrude(PD_TRIGGER_H + 2)
-    )
-    base = base.cut(pd_pocket)
-
-    # Buck converter pocket (MP1584EN, 22×17mm — next to PD trigger)
-    buck_x = pd_x - PD_TRIGGER_W / 2 - BUCK_CONV_W / 2 - 3
-    buck_y = pd_y
-    buck_pocket = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(buck_x, buck_y)
-        .rect(BUCK_CONV_W, BUCK_CONV_D)
-        .extrude(BUCK_CONV_H + 2)
-    )
-    base = base.cut(buck_pocket)
-
-    # Atomizer driver pocket (35×25mm — near left divider in dry zone)
-    driver_x = DIVIDER_DRY_X + WALL_INNER / 2 + 5 + ATOMIZER_DRIVER_W / 2
-    driver_pocket = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(driver_x, -45)
+        .center(_atm_drv_x, _atm_drv_y)
         .rect(ATOMIZER_DRIVER_W, ATOMIZER_DRIVER_D)
         .extrude(8)
     )
-    base = base.cut(driver_pocket)
+    base = base.cut(atm_driver_pocket)
 
-    # BME280 pocket (front-right corner, away from mist)
-    bme_pocket = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center(dry_center_x + 15, -(MEETING_D / 2 - WALL - BME280_D / 2 - 5))
-        .rect(BME280_W, BME280_D)
-        .extrude(BME280_H + 2)
-    )
-    base = base.cut(bme_pocket)
-
-    # --- USB-C port cutout (rear wall) ---
+    # --- USB-C port cutout (rear wall, aligned with electronics column) ---
     usbc_cutout = (
         cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + PD_TRIGGER_H / 2)
-        .center(pd_x, BASE_D / 2)
+        .workplane(offset=FLOOR_H + ESP32_H / 2)
+        .center(elec_col_x, BASE_D / 2)
         .rect(USBC_PORT_W, WALL + 2)
         .extrude(USBC_PORT_H)
     )
@@ -1153,14 +1146,38 @@ def build_top_shell():
 
 def build_components():
     """Build simplified solid models of all internal components at their
-    installed positions. Returns a dict of {name: (solid, color)}."""
+    installed positions. Returns a dict of {name: (solid, color)}.
+
+    Layout matches build_base() pockets:
+      Electronics column (X≈72, ~35mm wide):
+        Front: PD trigger + buck converter Z-stacked
+        Mid:   8-channel MOSFET board (50mm along Y)
+        Rear:  ESP32 DevKit (55mm along Y)
+      Relocated:
+        Atomizer driver → wet zone floor (behind atomizer)
+        BME280 → right divider wall (mid-height)
+    """
 
     parts = {}
 
-    # --- Recompute dry zone positions (same as build_base) ---
-    dry_left = DIVIDER_DRY_X + WALL_INNER / 2
+    # --- Recompute layout positions (must match build_base exactly) ---
     dry_right = MEETING_W / 2 - WALL
-    dry_center_x = (dry_left + dry_right) / 2
+    _bottle_right = BOTTLE_ROW_X + BOTTLE_WELL_DIA / 2 + 4
+    elec_col_x = (_bottle_right + dry_right) / 2
+    interior_y_min = -(MEETING_D / 2 - WALL - 2)
+
+    # Y-cursor positions (same math as build_base)
+    _pd_buck_d = max(PD_TRIGGER_D, BUCK_CONV_D)  # 18mm
+    y_cursor = interior_y_min
+    pd_buck_y = y_cursor + _pd_buck_d / 2
+    y_cursor += _pd_buck_d + 3
+    mosfet_y = y_cursor + MOSFET_BOARD_W / 2
+    y_cursor += MOSFET_BOARD_W + 3
+    esp32_y = y_cursor + ESP32_W / 2
+
+    # Atomizer driver position (wet zone, behind atomizer)
+    _atm_drv_x = ATOMIZER_POS_X
+    _atm_drv_y = ATOMIZER_POS_Y + ATOMIZER_MOUNT_DIA / 2 + 5 + ATOMIZER_DRIVER_D / 2
 
     # =============================================
     # WET ZONE components
@@ -1176,19 +1193,17 @@ def build_components():
     )
     parts["atomizer_disk"] = (atomizer_disk, (0.75, 0.75, 0.15, 0.95))  # gold
 
-    # Atomizer driver board (35×25mm, in dry zone near left divider)
-    driver_x = DIVIDER_DRY_X + WALL_INNER / 2 + 5 + ATOMIZER_DRIVER_W / 2
+    # Atomizer driver board (35×25mm, on wet zone floor behind atomizer)
     atomizer_driver = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H + 0.5)
-        .center(driver_x, -45)
+        .center(_atm_drv_x, _atm_drv_y)
         .rect(ATOMIZER_DRIVER_W, ATOMIZER_DRIVER_D)
         .extrude(6)
     )
     parts["atomizer_driver"] = (atomizer_driver, (0.2, 0.6, 0.2, 0.95))  # green PCB
 
     # Water (simplified as a transparent blue block filling wet zone)
-    # Water level at ~40mm above floor (about 60% full)
     water_level = 40
     _wet_left_x = -(MEETING_W / 2 - WALL)
     _wet_width = abs(DIVIDER_WET_X - _wet_left_x) - WALL_INNER
@@ -1221,8 +1236,7 @@ def build_components():
 
     # 5× 15ml essential oil bottles (cylinder body + smaller cap)
     for i, by in enumerate(bottle_y_positions):
-        # Bottle body (22mm dia)
-        bottle_body_h = BOTTLE_HEIGHT - 15  # body portion
+        bottle_body_h = BOTTLE_HEIGHT - 15
         body = (
             cq.Workplane("XY")
             .workplane(offset=FLOOR_H + BOTTLE_WELL_DEPTH)
@@ -1230,7 +1244,6 @@ def build_components():
             .circle(BOTTLE_DIA / 2)
             .extrude(bottle_body_h)
         )
-        # Bottle cap/neck (18mm dia, sits on top of body)
         cap_h = 15
         cap = (
             cq.Workplane("XY")
@@ -1240,7 +1253,6 @@ def build_components():
             .extrude(cap_h)
         )
         bottle = body.union(cap)
-        # Alternate amber/brown colors for different "scents"
         colors = [
             (0.6, 0.35, 0.05, 0.8),   # amber
             (0.45, 0.25, 0.1, 0.8),    # dark brown
@@ -1251,67 +1263,55 @@ def build_components():
         parts[f"bottle_{i}"] = (bottle, colors[i % len(colors)])
 
     # =============================================
-    # DRY ZONE — Electronics
+    # DRY ZONE — Electronics Column
     # =============================================
 
-    # ESP32 DevKit (55×28mm, rotated, rear of dry zone)
-    esp32 = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + 0.5)
-        .center(dry_center_x, 45)
-        .rect(ESP32_D, ESP32_W)  # rotated
-        .extrude(ESP32_H)
-    )
-    parts["esp32"] = (esp32, (0.1, 0.35, 0.7, 0.95))  # blue PCB
-
-    # 6× MOSFET modules (two columns of 3)
-    mosfet_x_left = dry_center_x - MOSFET_W / 2 - 2
-    mosfet_x_right = dry_center_x + MOSFET_W / 2 + 2
-    mosfet_y_positions = [-(MOSFET_COUNT - 1) / 2 * (MOSFET_D + 3) + i * (MOSFET_D + 3)
-                          for i in range(MOSFET_COUNT)]
-    for i in range(MOSFET_COUNT):
-        mx = mosfet_x_left if i < 3 else mosfet_x_right
-        my = mosfet_y_positions[i % 3] if i >= 3 else mosfet_y_positions[i]
-        mosfet = (
-            cq.Workplane("XY")
-            .workplane(offset=FLOOR_H + 0.5)
-            .center(mx, my)
-            .rect(MOSFET_W, MOSFET_D)
-            .extrude(MOSFET_H)
-        )
-        parts[f"mosfet_{i}"] = (mosfet, (0.15, 0.55, 0.15, 0.9))  # green
-
-    # CH224K PD trigger board
-    pd_x = dry_center_x + 15
-    pd_y = MEETING_D / 2 - WALL - PD_TRIGGER_D / 2 - 5
-    pd_trigger = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + 0.5)
-        .center(pd_x, pd_y)
-        .rect(PD_TRIGGER_W, PD_TRIGGER_D)
-        .extrude(PD_TRIGGER_H)
-    )
-    parts["pd_trigger"] = (pd_trigger, (0.7, 0.1, 0.1, 0.95))  # red PCB
-
-    # MP1584EN buck converter
-    buck_x = pd_x - PD_TRIGGER_W / 2 - BUCK_CONV_W / 2 - 3
-    buck_y = pd_y
+    # Buck converter (22×17mm, on floor, front of column)
     buck_conv = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H + 0.5)
-        .center(buck_x, buck_y)
+        .center(elec_col_x, pd_buck_y)
         .rect(BUCK_CONV_W, BUCK_CONV_D)
         .extrude(BUCK_CONV_H)
     )
     parts["buck_converter"] = (buck_conv, (0.5, 0.1, 0.5, 0.95))  # purple PCB
 
-    # BME280 sensor
-    bme_x = dry_center_x + 15
-    bme_y = -(MEETING_D / 2 - WALL - BME280_D / 2 - 5)
-    bme280 = (
+    # CH224K PD trigger (24×18mm, stacked on top of buck converter)
+    pd_trigger = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H + 0.5 + BUCK_CONV_H + 1)
+        .center(elec_col_x, pd_buck_y)
+        .rect(PD_TRIGGER_W, PD_TRIGGER_D)
+        .extrude(PD_TRIGGER_H)
+    )
+    parts["pd_trigger"] = (pd_trigger, (0.7, 0.1, 0.1, 0.95))  # red PCB
+
+    # 8-channel MOSFET board (26mm X × 50mm Y × 12mm Z)
+    mosfet_board = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H + 0.5)
-        .center(bme_x, bme_y)
+        .center(elec_col_x, mosfet_y)
+        .rect(MOSFET_BOARD_D, MOSFET_BOARD_W)  # 26mm X, 50mm Y
+        .extrude(MOSFET_BOARD_H)
+    )
+    parts["mosfet_board"] = (mosfet_board, (0.15, 0.55, 0.15, 0.9))  # green
+
+    # ESP32 DevKit (28mm X × 55mm Y × 13mm Z)
+    esp32 = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H + 0.5)
+        .center(elec_col_x, esp32_y)
+        .rect(ESP32_D, ESP32_W)  # 28mm X, 55mm Y
+        .extrude(ESP32_H)
+    )
+    parts["esp32"] = (esp32, (0.1, 0.35, 0.7, 0.95))  # blue PCB
+
+    # BME280 sensor (15×12mm, on top of MOSFET board, Z-stacked)
+    _bme_z = FLOOR_H + 0.5 + MOSFET_BOARD_H + 2  # sits above MOSFET board
+    bme280 = (
+        cq.Workplane("XY")
+        .workplane(offset=_bme_z)
+        .center(elec_col_x, mosfet_y)
         .rect(BME280_W, BME280_D)
         .extrude(BME280_H)
     )
@@ -1325,28 +1325,24 @@ def build_components():
     _w_at_led = BASE_W + _t_led * (MEETING_W - BASE_W)
     _d_at_led = BASE_D + _t_led * (MEETING_D - BASE_D)
 
-    # Front strip
     led_f = (
         cq.Workplane("XY")
         .box(_w_at_led - WALL * 2 - 8, 3, LED_CHANNEL_W - 1)
         .translate((0, -(_d_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1),
                     led_z + LED_CHANNEL_W / 2))
     )
-    # Rear strip
     led_r = (
         cq.Workplane("XY")
         .box(_w_at_led - WALL * 2 - 8, 3, LED_CHANNEL_W - 1)
         .translate((0, _d_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1,
                     led_z + LED_CHANNEL_W / 2))
     )
-    # Left strip
     led_l = (
         cq.Workplane("XY")
         .box(3, _d_at_led - WALL * 2 - 8, LED_CHANNEL_W - 1)
         .translate((-(_w_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1), 0,
                     led_z + LED_CHANNEL_W / 2))
     )
-    # Right strip
     led_ri = (
         cq.Workplane("XY")
         .box(3, _d_at_led - WALL * 2 - 8, LED_CHANNEL_W - 1)
@@ -1547,7 +1543,7 @@ print("--- BOM (verified dimensions) ---")
 print(f"Pumps:       {PUMP_COUNT}x JIHPUMP WX3 ({PUMP_BODY_W}x{PUMP_BODY_D}x{PUMP_BODY_H}mm, 5V)")
 print(f"Atomizer:    20mm/113KHz piezo + {ATOMIZER_DRIVER_W}x{ATOMIZER_DRIVER_D}mm driver (5V)")
 print(f"MCU:         ESP32 DevKit ({ESP32_W}x{ESP32_D}mm)")
-print(f"MOSFETs:     {MOSFET_COUNT}x IRLZ44N ({MOSFET_W}x{MOSFET_D}mm)")
+print(f"MOSFETs:     8-ch board ({MOSFET_BOARD_W}x{MOSFET_BOARD_D}x{MOSFET_BOARD_H}mm, using {MOSFET_COUNT} ch)")
 print(f"PD trigger:  CH224K ({PD_TRIGGER_W}x{PD_TRIGGER_D}mm)")
 print(f"Buck conv:   MP1584EN ({BUCK_CONV_W}x{BUCK_CONV_D}mm, 12V→5V)")
 print(f"Buttons:     {TOUCH_BTN_COUNT}x TTP223 capacitive ({TOUCH_BTN_W}x{TOUCH_BTN_D}mm)")
@@ -1571,11 +1567,12 @@ print()
 print(f"DRY ZONE:    X={_dry_left:.1f} to {_dry_right:.1f}mm ({_dry_right - _dry_left:.0f}mm wide)  [PURPLE]")
 print(f"  Bottles:   {BOTTLE_COUNT}x {BOTTLE_DIA}mm dia wells at X={BOTTLE_ROW_X:.1f}")
 print(f"             Y={[f'{y:.0f}' for y in bottle_y_positions]}")
-print(f"  ESP32:     {ESP32_W}x{ESP32_D}mm (rotated)")
-print(f"  MOSFETs:   {MOSFET_COUNT}x {MOSFET_W}x{MOSFET_D}mm (2 columns of 3)")
-print(f"  PD trigger:{PD_TRIGGER_W}x{PD_TRIGGER_D}mm (CH224K)")
-print(f"  Buck conv: {BUCK_CONV_W}x{BUCK_CONV_D}mm (MP1584EN)")
-print(f"  BME280:    {BME280_W}x{BME280_D}mm")
+print(f"  Elec col:  X≈{(_dry_right + BOTTLE_ROW_X + BOTTLE_WELL_DIA/2 + 4) / 2:.0f}, 3 boards stacked along Y:")
+print(f"    PD+Buck: Z-stacked ({PD_TRIGGER_W}x{PD_TRIGGER_D} + {BUCK_CONV_W}x{BUCK_CONV_D}mm)")
+print(f"    MOSFET:  8-ch board ({MOSFET_BOARD_D}x{MOSFET_BOARD_W}mm, 50mm along Y)")
+print(f"    ESP32:   {ESP32_D}x{ESP32_W}mm (55mm along Y)")
+print(f"  BME280:    {BME280_W}x{BME280_D}mm (on top of MOSFET board)")
+print(f"  Atm driver:{ATOMIZER_DRIVER_W}x{ATOMIZER_DRIVER_D}mm (relocated to wet zone)")
 print(f"  USB-C:     {USBC_PORT_W}x{USBC_PORT_H}mm (rear wall)")
 print()
 print("--- Top Shell Zones (left to right) ---")
