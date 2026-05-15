@@ -460,6 +460,55 @@ def build_base():
     )
     base = base.cut(led_front)
 
+    # --- Hex mesh cutouts (right wall + front wall, upper half) ---
+    # Hex mesh height covers roughly the upper half of the base wall
+    hex_panel_h = BASE_H * 0.45
+    hex_panel_z = BASE_H - hex_panel_h - WALL - 2  # leave rim at top
+
+    # Right wall hex mesh
+    hex_right = hex_mesh_cutout(BASE_D * 0.7, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
+    # Rotate: XY plane -> align with right wall (YZ plane)
+    # rotate 90° around Z to swap X/Y, then 90° around X to get into YZ
+    hex_right_positioned = (
+        hex_right
+        .rotateAboutCenter((0, 0, 1), 90)
+        .rotateAboutCenter((0, 1, 0), 90)
+        .translate((BASE_W / 2 - _taper_shrink_base * 0.5, 0, hex_panel_z + hex_panel_h / 2))
+    )
+    base = base.cut(hex_right_positioned)
+
+    # Front wall hex mesh
+    hex_front = hex_mesh_cutout(BASE_W * 0.7, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
+    # Rotate: XY plane -> align with front wall (XZ plane)
+    hex_front_positioned = (
+        hex_front
+        .rotateAboutCenter((1, 0, 0), 90)
+        .translate((0, -(BASE_D / 2 - _taper_shrink_base * 0.5), hex_panel_z + hex_panel_h / 2))
+    )
+    base = base.cut(hex_front_positioned)
+
+    # --- Magnet pockets on base rim (4x) ---
+    for mx, my in magnet_positions:
+        magnet_pocket = (
+            cq.Workplane("XY")
+            .workplane(offset=BASE_H - MAGNET_H)
+            .center(mx, my)
+            .circle((MAGNET_DIA + TOL * 2) / 2)
+            .extrude(MAGNET_H + 0.1)
+        )
+        base = base.cut(magnet_pocket)
+
+    # --- Alignment pins (4x, protrude upward from base rim) ---
+    for px, py in pin_positions:
+        pin = (
+            cq.Workplane("XY")
+            .workplane(offset=BASE_H)
+            .center(px, py)
+            .circle(PIN_DIA / 2)
+            .extrude(PIN_H)
+        )
+        base = base.union(pin)
+
     return base
 
 
