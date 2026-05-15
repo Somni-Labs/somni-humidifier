@@ -1672,6 +1672,132 @@ def build_components():
     led_strip = led_f.union(led_r).union(led_l).union(led_ri)
     parts["led_strip"] = (led_strip, (0.2, 1.0, 0.3, 0.8))  # bright green
 
+    # =============================================
+    # WIRE CHANNEL VISUALIZATION (colored solids filling the grooves)
+    # =============================================
+    # These are NOT physical parts — they show where wires run.
+    # Hot pink for power, yellow for signal, orange for pump spurs,
+    # magenta for atomizer spur, cyan for LED spur.
+
+    _ch_z = FLOOR_H + CHANNEL_D / 2  # channel center Z
+
+    # --- Recompute channel positions (must match build_base) ---
+    _pd_buck_d_ch = max(PD_TRIGGER_D, BUCK_CONV_D)
+    _y_cur = -(MEETING_D / 2 - WALL - 2)  # interior_y_min
+    _interior_y_max = (MEETING_D / 2 - WALL - 2)
+    _pd_buck_y_ch = _y_cur + _pd_buck_d_ch / 2
+    _y_cur += _pd_buck_d_ch + 3
+    _mosfet_y_ch = _y_cur + MOSFET_BOARD_W / 2
+    _y_cur += MOSFET_BOARD_W + 3
+    _esp32_y_ch = _y_cur + ESP32_W / 2
+
+    _spur_x_start = DIVIDER_DRY_X + WALL_INNER / 2 + 1
+    _spur_x_end = elec_col_x - MOSFET_BOARD_D / 2 - 1
+    _collector_x = _spur_x_end + CHANNEL_W / 2
+    _atm_spur_y = -(MEETING_D / 2 - WALL - 2) + 3
+
+    _atm_drv_x_ch = ATOMIZER_POS_X
+    _atm_drv_y_ch = ATOMIZER_POS_Y + ATOMIZER_MOUNT_DIA / 2 + 5 + ATOMIZER_DRIVER_D / 2
+
+    # Power trunk (hot pink) — full length along electronics column
+    _pt_y_start = _pd_buck_y_ch - _pd_buck_d_ch / 2 - 2
+    _pt_y_end = _interior_y_max
+    _pt_len = _pt_y_end - _pt_y_start
+    power_trunk_vis = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W - 0.5, _pt_len, CHANNEL_D - 0.5)
+        .translate((elec_col_x, (_pt_y_start + _pt_y_end) / 2, _ch_z))
+    )
+    parts["wire_power_trunk"] = (power_trunk_vis, (1.0, 0.2, 0.6, 0.9))  # hot pink
+
+    # Signal trunk (yellow) — short bridge between MOSFET and ESP32
+    _sig_y_s = _mosfet_y_ch + MOSFET_BOARD_W / 2
+    _sig_y_e = _esp32_y_ch - ESP32_W / 2
+    signal_trunk_vis = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W - 0.5, max(_sig_y_e - _sig_y_s, 1) + 4, CHANNEL_D - 0.5)
+        .translate((elec_col_x, (_sig_y_s + _sig_y_e) / 2, _ch_z))
+    )
+    parts["wire_signal_trunk"] = (signal_trunk_vis, (1.0, 0.95, 0.1, 0.9))  # yellow
+
+    # Pump spurs (orange) — 5 channels from collector to right divider
+    for i, py in enumerate(pump_y_positions):
+        spur_vis = (
+            cq.Workplane("XY")
+            .box(_spur_x_end - _spur_x_start, CHANNEL_W - 0.5, CHANNEL_D - 0.5)
+            .translate(((_spur_x_start + _spur_x_end) / 2, py, _ch_z))
+        )
+        parts[f"wire_pump_spur_{i}"] = (spur_vis, (1.0, 0.55, 0.1, 0.85))  # orange
+
+    # Collector channel (orange)
+    _col_y_s = pump_y_positions[0]
+    _col_y_e = pump_y_positions[-1]
+    collector_vis = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W - 0.5, _col_y_e - _col_y_s + CHANNEL_W, CHANNEL_D - 0.5)
+        .translate((_collector_x, (_col_y_s + _col_y_e) / 2, _ch_z))
+    )
+    parts["wire_collector"] = (collector_vis, (1.0, 0.55, 0.1, 0.85))  # orange
+
+    # Atomizer spur (magenta) — multi-segment route
+    # Segment 1: dry zone horizontal
+    _as1_xs = DIVIDER_DRY_X + WALL_INNER / 2 + 1
+    _as1_xe = _collector_x
+    atm_s1_vis = (
+        cq.Workplane("XY")
+        .box(_as1_xe - _as1_xs, CHANNEL_W - 0.5, CHANNEL_D - 0.5)
+        .translate(((_as1_xs + _as1_xe) / 2, _atm_spur_y, _ch_z))
+    )
+    parts["wire_atm_spur_1"] = (atm_s1_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
+
+    # Segment 1b: vertical connector to MOSFET front
+    _as1b_ye = _mosfet_y_ch - MOSFET_BOARD_W / 2
+    atm_s1b_vis = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W - 0.5, abs(_as1b_ye - _atm_spur_y), CHANNEL_D - 0.5)
+        .translate((_collector_x, (_atm_spur_y + _as1b_ye) / 2, _ch_z))
+    )
+    parts["wire_atm_spur_1b"] = (atm_s1b_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
+
+    # Segment 2: across pump row
+    _as2_xs = DIVIDER_WET_X - WALL_INNER / 2 - 1
+    _as2_xe = DIVIDER_DRY_X - WALL_INNER / 2 + 1
+    atm_s2_vis = (
+        cq.Workplane("XY")
+        .box(abs(_as2_xe - _as2_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
+        .translate(((_as2_xs + _as2_xe) / 2, _atm_spur_y, _ch_z))
+    )
+    parts["wire_atm_spur_2"] = (atm_s2_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
+
+    # Segment 3a: wet zone vertical
+    _wet_wall_x = DIVIDER_WET_X - WALL_INNER / 2 - 3
+    atm_s3a_vis = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W - 0.5, abs(_atm_drv_y_ch - _atm_spur_y), CHANNEL_D - 0.5)
+        .translate((_wet_wall_x, (_atm_spur_y + _atm_drv_y_ch) / 2, _ch_z))
+    )
+    parts["wire_atm_spur_3a"] = (atm_s3a_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
+
+    # Segment 3b: wet zone horizontal to driver
+    _as3b_xs = _atm_drv_x_ch + ATOMIZER_DRIVER_W / 2 + 1
+    _as3b_xe = _wet_wall_x
+    atm_s3b_vis = (
+        cq.Workplane("XY")
+        .box(abs(_as3b_xe - _as3b_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
+        .translate(((_as3b_xs + _as3b_xe) / 2, _atm_drv_y_ch, _ch_z))
+    )
+    parts["wire_atm_spur_3b"] = (atm_s3b_vis, (0.85, 0.15, 0.85, 0.85))  # magenta
+
+    # LED spur (cyan) — ESP32 to rear wall
+    _led_y_s = _esp32_y_ch + ESP32_W / 2
+    _led_y_e = _interior_y_max - 2
+    led_spur_vis = (
+        cq.Workplane("XY")
+        .box(CHANNEL_W - 0.5, _led_y_e - _led_y_s, CHANNEL_D - 0.5)
+        .translate((elec_col_x, (_led_y_s + _led_y_e) / 2, _ch_z))
+    )
+    parts["wire_led_spur"] = (led_spur_vis, (0.1, 0.9, 0.95, 0.9))  # cyan
+
     return parts
 
 
