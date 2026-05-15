@@ -600,6 +600,20 @@ def build_base():
         .extrude(_pd_buck_h)
     )
     base = base.cut(pd_buck_pocket)
+
+    # Rail slots for PD trigger board (slides in from top)
+    _pdb_pocket_hw = (_pd_buck_w + 2) / 2  # half-width of pocket in X
+    for _rail_side in [-1, 1]:
+        rail = (
+            cq.Workplane("XY")
+            .workplane(offset=FLOOR_H + RAIL_LIFT)
+            .center(elec_col_x + _rail_side * (_pdb_pocket_hw - RAIL_GROOVE_D / 2),
+                    pd_buck_y)
+            .rect(RAIL_GROOVE_D, _pd_buck_d)
+            .extrude(_pd_buck_h - RAIL_LIFT)
+        )
+        base = base.union(rail)
+
     y_cursor += _pd_buck_d + 3
 
     # 8-channel MOSFET board (50×26mm, long dim along Y, short dim across X)
@@ -612,6 +626,20 @@ def build_base():
         .extrude(MOSFET_BOARD_H + 2)
     )
     base = base.cut(mosfet_pocket)
+
+    # Rail slots for MOSFET board (slides in from top)
+    _mos_pocket_hw = (MOSFET_BOARD_D + 2) / 2  # half-width in X
+    for _rail_side in [-1, 1]:
+        rail = (
+            cq.Workplane("XY")
+            .workplane(offset=FLOOR_H + RAIL_LIFT)
+            .center(elec_col_x + _rail_side * (_mos_pocket_hw - RAIL_GROOVE_D / 2),
+                    mosfet_y)
+            .rect(RAIL_GROOVE_D, MOSFET_BOARD_W)
+            .extrude(MOSFET_BOARD_H + 2 - RAIL_LIFT)
+        )
+        base = base.union(rail)
+
     y_cursor += MOSFET_BOARD_W + 3
 
     # ESP32 DevKit (55×28mm, long dim along Y, short dim across X)
@@ -624,6 +652,19 @@ def build_base():
         .extrude(ESP32_H + 2)
     )
     base = base.cut(esp32_pocket)
+
+    # Rail slots for ESP32 (slides in from top)
+    _esp_pocket_hw = (ESP32_D + 2) / 2  # half-width in X
+    for _rail_side in [-1, 1]:
+        rail = (
+            cq.Workplane("XY")
+            .workplane(offset=FLOOR_H + RAIL_LIFT)
+            .center(elec_col_x + _rail_side * (_esp_pocket_hw - RAIL_GROOVE_D / 2),
+                    esp32_y)
+            .rect(RAIL_GROOVE_D, ESP32_W)
+            .extrude(ESP32_H + 2 - RAIL_LIFT)
+        )
+        base = base.union(rail)
 
     # BME280 sensor — sits on top of MOSFET board (Z-stacked in electronics column).
     # Tiny board (15×12×5mm) rests above the MOSFET (Z=FLOOR_H+MOSFET_BOARD_H+2).
