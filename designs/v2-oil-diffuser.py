@@ -506,27 +506,6 @@ def build_base():
         )
         base = base.cut(tube_out)
 
-    # === TUBING CHANNELS (base floor) ===
-    # Collector channel parallel to divider (right-column pump tubes route here)
-    _tube_collector_x = DIVIDER_WET_X + WALL_INNER / 2 + 3
-    tube_collector = (
-        cq.Workplane("XY")
-        .box(TUBE_CHANNEL_W, 60, TUBE_CHANNEL_D)
-        .translate((_tube_collector_x, 0, FLOOR_H + TUBE_CHANNEL_D / 2))
-    )
-    base = base.cut(tube_collector)
-
-    # Spur channels from each right-column pump to collector
-    for rpy in _pump_right_col_ys:
-        spur_length = abs(_pump_right_col_cx - _tube_collector_x)
-        tube_spur = (
-            cq.Workplane("XY")
-            .box(spur_length, TUBE_SPUR_W, TUBE_CHANNEL_D)
-            .translate(((_pump_right_col_cx + _tube_collector_x) / 2,
-                        rpy, FLOOR_H + TUBE_CHANNEL_D / 2))
-        )
-        base = base.cut(tube_spur)
-
     # === CENTER ZONE UPPER LEVEL — tray support ledges ===
     interior_y_min = -(MEETING_D / 2 - WALL - 2)
     interior_y_max = (MEETING_D / 2 - WALL - 2)
@@ -579,32 +558,24 @@ def build_base():
 
     # --- USB-C port cutout (rear wall of center zone) ---
     _usbc_x = (_pump_left_col_cx + _pump_right_col_cx) / 2
+    _usbc_z = TRAY_Z + TRAY_FLOOR + 3
+    _t_usbc = _usbc_z / BASE_H
+    _d_at_usbc = BASE_D + _t_usbc * (MEETING_D - BASE_D)
     usbc_cutout = (
         cq.Workplane("XY")
-        .workplane(offset=TRAY_Z + TRAY_FLOOR + 3)
-        .center(_usbc_x, BASE_D / 2)
+        .workplane(offset=_usbc_z)
+        .center(_usbc_x, _d_at_usbc / 2)
         .rect(USBC_PORT_W, WALL + 2)
         .extrude(USBC_PORT_H)
     )
     base = base.cut(usbc_cutout)
 
     # === WIRE CHANNEL NETWORK (base floor only) ===
-    # Atomizer spur: center zone floor -> left divider -> wet zone -> atomizer
-    # Route through the gap between the 2 left-column pumps (Y~0)
-    _atm_spur_y = 0  # wire corridor runs at Y=0 between left-col pumps
+    # Atomizer spur: wires route through divider port, then through air gap
+    # between left-column pumps (tight but sufficient for thin wires)
+    _atm_spur_y = 0  # wire corridor runs at Y=0
 
-    # Segment 1: center zone floor, from divider to left column
-    _atm_seg1_x_start = DIVIDER_WET_X + WALL_INNER / 2 + 1
-    _atm_seg1_x_end = _pump_left_col_cx - PUMP_BODY_W / 2 - 1
-    atm_seg1 = (
-        cq.Workplane("XY")
-        .box(abs(_atm_seg1_x_end - _atm_seg1_x_start), CHANNEL_W, CHANNEL_D)
-        .translate(((_atm_seg1_x_start + _atm_seg1_x_end) / 2, _atm_spur_y,
-                     FLOOR_H + CHANNEL_D / 2))
-    )
-    base = base.cut(atm_seg1)
-
-    # Segment 2: wet zone, from left divider to atomizer X position
+    # Wet zone channel: from left divider to atomizer X position
     _atm_seg2_x_start = ATOMIZER_POS_X
     _atm_seg2_x_end = DIVIDER_WET_X - WALL_INNER / 2 - 1
     atm_seg2 = (
@@ -1570,17 +1541,7 @@ def build_components():
     _ch_z = FLOOR_H + CHANNEL_D / 2
     _atm_spur_y = 0
 
-    # Atomizer spur segment 1: center zone floor
-    _as1_xs = DIVIDER_WET_X + WALL_INNER / 2 + 1
-    _as1_xe = _pump_left_col_cx - PUMP_BODY_W / 2 - 1
-    atm_s1_vis = (
-        cq.Workplane("XY")
-        .box(abs(_as1_xe - _as1_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
-        .translate(((_as1_xs + _as1_xe) / 2, _atm_spur_y, _ch_z))
-    )
-    parts["wire_atm_spur_1"] = (atm_s1_vis, (0.85, 0.15, 0.85, 0.85))
-
-    # Atomizer spur segment 2: wet zone horizontal
+    # Atomizer spur: wet zone horizontal (divider to atomizer)
     _as2_xs = ATOMIZER_POS_X
     _as2_xe = DIVIDER_WET_X - WALL_INNER / 2 - 1
     atm_s2_vis = (
@@ -1588,31 +1549,7 @@ def build_components():
         .box(abs(_as2_xe - _as2_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
         .translate(((_as2_xs + _as2_xe) / 2, _atm_spur_y, _ch_z))
     )
-    parts["wire_atm_spur_2"] = (atm_s2_vis, (0.85, 0.15, 0.85, 0.85))
-
-    # =============================================
-    # TUBING CHANNEL VISUALIZATION (base floor)
-    # =============================================
-    _tube_collector_x = DIVIDER_WET_X + WALL_INNER / 2 + 3
-
-    # Collector channel
-    tube_coll_vis = (
-        cq.Workplane("XY")
-        .box(TUBE_CHANNEL_W - 0.5, 58, TUBE_CHANNEL_D - 0.5)
-        .translate((_tube_collector_x, 0, FLOOR_H + TUBE_CHANNEL_D / 2))
-    )
-    parts["tube_collector"] = (tube_coll_vis, (0.85, 0.15, 0.55, 0.8))  # magenta
-
-    # Spur channels from right-column pumps
-    for si, rpy in enumerate(_pump_right_col_ys):
-        spur_len = abs(_pump_right_col_cx - _tube_collector_x)
-        spur_vis = (
-            cq.Workplane("XY")
-            .box(spur_len - 1, TUBE_SPUR_W - 0.5, TUBE_CHANNEL_D - 0.5)
-            .translate(((_pump_right_col_cx + _tube_collector_x) / 2,
-                        rpy, FLOOR_H + TUBE_CHANNEL_D / 2))
-        )
-        parts[f"tube_spur_{si}"] = (spur_vis, (0.85, 0.15, 0.55, 0.8))  # magenta
+    parts["wire_atm_spur"] = (atm_s2_vis, (0.85, 0.15, 0.85, 0.85))
 
     return parts
 
@@ -1719,6 +1656,137 @@ for comp_name, (comp_solid, comp_color) in components.items():
 
 
 # =============================================================================
+# DIMENSION ANNOTATIONS
+# =============================================================================
+# Thin colored lines with endpoint dots showing key measurements.
+# Convention: Red = X (width), Green = Y (depth), Blue = Z (height)
+# Lines are 0.8mm thick, endpoint dots are 2.5mm cubes.
+
+_dim_line_t = 0.8    # line thickness
+_dim_dot_s = 2.5     # endpoint dot size
+_dim_offset = 8      # how far outside the enclosure to place lines
+
+# --- Helper: dimension line with endpoint dots ---
+def _dim_line(x1, y1, z1, x2, y2, z2, color, name):
+    """Create a dimension line from (x1,y1,z1) to (x2,y2,z2) with endpoint cubes."""
+    dx = x2 - x1; dy = y2 - y1; dz = z2 - z1
+    length = (dx**2 + dy**2 + dz**2) ** 0.5
+    cx = (x1 + x2) / 2; cy = (y1 + y2) / 2; cz = (z1 + z2) / 2
+
+    # Line body (thin box along the dominant axis)
+    if abs(dx) >= abs(dy) and abs(dx) >= abs(dz):
+        line = cq.Workplane("XY").box(length, _dim_line_t, _dim_line_t).translate((cx, cy, cz))
+    elif abs(dy) >= abs(dx) and abs(dy) >= abs(dz):
+        line = cq.Workplane("XY").box(_dim_line_t, length, _dim_line_t).translate((cx, cy, cz))
+    else:
+        line = cq.Workplane("XY").box(_dim_line_t, _dim_line_t, length).translate((cx, cy, cz))
+
+    # Endpoint dots
+    dot1 = cq.Workplane("XY").box(_dim_dot_s, _dim_dot_s, _dim_dot_s).translate((x1, y1, z1))
+    dot2 = cq.Workplane("XY").box(_dim_dot_s, _dim_dot_s, _dim_dot_s).translate((x2, y2, z2))
+
+    result = line.union(dot1).union(dot2)
+    show_object(result, name=f"dim_{name}", options={"color": color})
+
+
+# --- Overall envelope at base (Z=0) ---
+_env_z = -_dim_offset / 2   # slightly below base
+_red   = (1.0, 0.15, 0.15, 0.95)   # X dimensions
+_green = (0.15, 0.85, 0.15, 0.95)  # Y dimensions
+_blue  = (0.15, 0.15, 1.0, 0.95)   # Z dimensions
+_white = (0.95, 0.95, 0.95, 0.9)   # zone widths
+
+# Base width (X) — along front edge
+_dim_line(-BASE_W/2, -BASE_D/2 - _dim_offset, 0,
+           BASE_W/2, -BASE_D/2 - _dim_offset, 0,
+          _red, f"base_W_{BASE_W}mm")
+
+# Base depth (Y) — along left edge
+_dim_line(-BASE_W/2 - _dim_offset, -BASE_D/2, 0,
+          -BASE_W/2 - _dim_offset,  BASE_D/2, 0,
+          _green, f"base_D_{BASE_D}mm")
+
+# Total height (Z) — along front-left corner
+_dim_line(-BASE_W/2 - _dim_offset, -BASE_D/2 - _dim_offset, 0,
+          -BASE_W/2 - _dim_offset, -BASE_D/2 - _dim_offset, TOTAL_H,
+          _blue, f"total_H_{TOTAL_H}mm")
+
+# Meeting line width (X) — at Z=BASE_H, front edge
+_dim_line(-MEETING_W/2, -MEETING_D/2 - _dim_offset + 3, BASE_H,
+           MEETING_W/2, -MEETING_D/2 - _dim_offset + 3, BASE_H,
+          _red, f"meeting_W_{MEETING_W:.0f}mm")
+
+# Meeting line depth (Y) — at Z=BASE_H, left edge
+_dim_line(-MEETING_W/2 - _dim_offset + 3, -MEETING_D/2, BASE_H,
+          -MEETING_W/2 - _dim_offset + 3,  MEETING_D/2, BASE_H,
+          _green, f"meeting_D_{MEETING_D:.0f}mm")
+
+# Crown width and depth (X, Y at top)
+_dim_line(-TOP_W/2, -TOP_D/2 - _dim_offset + 5, TOTAL_H,
+           TOP_W/2, -TOP_D/2 - _dim_offset + 5, TOTAL_H,
+          _red, f"crown_W_{TOP_W:.0f}mm")
+
+_dim_line(-TOP_W/2 - _dim_offset + 5, -TOP_D/2, TOTAL_H,
+          -TOP_W/2 - _dim_offset + 5,  TOP_D/2, TOTAL_H,
+          _green, f"crown_D_{TOP_D:.0f}mm")
+
+# --- Base height / Top shell height (Z split) ---
+_corner_x = BASE_W/2 + _dim_offset
+_corner_y = -BASE_D/2 - _dim_offset
+
+# Base height
+_dim_line(_corner_x, _corner_y, 0,
+          _corner_x, _corner_y, BASE_H,
+          _blue, f"base_H_{BASE_H}mm")
+
+# Top shell height
+_dim_line(_corner_x, _corner_y, BASE_H,
+          _corner_x, _corner_y, TOTAL_H,
+          _blue, f"top_H_{TOP_H}mm")
+
+# --- Zone widths on base floor (Z = FLOOR_H + 1) ---
+_zone_z = FLOOR_H + 2
+_zone_y = -MEETING_D/2 + WALL + 3  # near front inner wall
+
+_wet_inner_left = -(MEETING_W/2 - WALL)
+_wet_inner_right = DIVIDER_WET_X - WALL_INNER/2
+_center_inner_left_x = DIVIDER_WET_X + WALL_INNER/2
+_center_inner_right_x = MEETING_W/2 - WALL
+
+# Wet zone width
+_dim_line(_wet_inner_left, _zone_y, _zone_z,
+          _wet_inner_right, _zone_y, _zone_z,
+          _white, f"wet_zone_{abs(_wet_inner_right - _wet_inner_left):.0f}mm")
+
+# Center zone width
+_dim_line(_center_inner_left_x, _zone_y, _zone_z,
+          _center_inner_right_x, _zone_y, _zone_z,
+          _white, f"center_zone_{abs(_center_inner_right_x - _center_inner_left_x):.0f}mm")
+
+# --- Tray dimensions ---
+_tray_inner_left = DIVIDER_WET_X + WALL_INNER/2 + TRAY_CLEARANCE
+_tray_inner_right = MEETING_W/2 - WALL - TRAY_CLEARANCE
+_tray_z_mid = TRAY_Z + TRAY_H / 2
+
+# Tray width
+_dim_line(_tray_inner_left, -MEETING_D/2 + WALL + 2, _tray_z_mid,
+          _tray_inner_right, -MEETING_D/2 + WALL + 2, _tray_z_mid,
+          _white, f"tray_W_{_tray_inner_right - _tray_inner_left:.0f}mm")
+
+# --- Key clearance: atomizer to wet zone walls ---
+_atm_clearance_z = FLOOR_H + 5
+_dim_line(ATOMIZER_POS_X - ATOMIZER_MOUNT_DIA/2, ATOMIZER_POS_Y, _atm_clearance_z,
+          _wet_inner_left, ATOMIZER_POS_Y, _atm_clearance_z,
+          (1.0, 0.8, 0.0, 0.9),
+          f"atm_wall_gap_{abs(ATOMIZER_POS_X - ATOMIZER_MOUNT_DIA/2 - _wet_inner_left):.1f}mm")
+
+_dim_line(ATOMIZER_POS_X + ATOMIZER_MOUNT_DIA/2, ATOMIZER_POS_Y, _atm_clearance_z,
+          _wet_inner_right, ATOMIZER_POS_Y, _atm_clearance_z,
+          (1.0, 0.8, 0.0, 0.9),
+          f"atm_div_gap_{abs(_wet_inner_right - (ATOMIZER_POS_X + ATOMIZER_MOUNT_DIA/2)):.1f}mm")
+
+
+# =============================================================================
 # ASSEMBLY SUMMARY
 # =============================================================================
 
@@ -1766,11 +1834,10 @@ print(f"  Upper:     Electronics tray (lift-out, Z={TRAY_Z}mm)")
 print(f"  Tray ledges on left divider + right outer wall, 4 registration tab slots")
 print()
 print("--- Electronics Tray (lift-out shelf) ---")
-print(f"  Left col:  ESP32 ({ESP32_D}x{ESP32_W}mm)")
+print(f"  Left col:  ESP32 ({ESP32_D}x{ESP32_W}mm) + BME280 ({BME280_W}x{BME280_D}mm)")
 print(f"  Right col: MOSFET ({MOSFET_BOARD_D}x{MOSFET_BOARD_W}mm)")
+print(f"             Atm driver ({ATOMIZER_DRIVER_D}x{ATOMIZER_DRIVER_W}mm, Z-stacked on MOSFET)")
 print(f"             PD+Buck Z-stacked ({PD_TRIGGER_W}x{PD_TRIGGER_D} + {BUCK_CONV_W}x{BUCK_CONV_D}mm)")
-print(f"             Atm driver ({ATOMIZER_DRIVER_D}x{ATOMIZER_DRIVER_W}mm)")
-print(f"             BME280 ({BME280_W}x{BME280_D}mm)")
 print(f"  USB-C:     {USBC_PORT_W}x{USBC_PORT_H}mm (rear wall, center zone)")
 print()
 print("--- Top Shell Zones (left to right) ---")
