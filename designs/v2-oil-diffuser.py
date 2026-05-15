@@ -402,7 +402,7 @@ def hex_mesh_cutout(width, height, cell_size, wall_thickness, margin):
 def build_base():
     """Two-zone base: wet (left) | center two-level (right).
 
-    Center zone lower level: 5 pumps.
+    Center zone lower level: 2+3 pump grid.
     Center zone upper level: lift-out electronics tray (separate part).
     """
 
@@ -427,7 +427,6 @@ def build_base():
     # --- Divider wall (one, creating two zones) ---
     divider_h = BASE_H - FLOOR_H - WALL - 2
 
-    # Left divider (wet zone | center zone)
     divider_left = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H)
@@ -472,12 +471,12 @@ def build_base():
 
     # --- CENTER ZONE (right of DIVIDER_WET_X) ---
 
-    # 5 pump pockets centered in center zone
-    for py in pump_y_positions:
+    # 2+3 pump grid pockets
+    for px, py in pump_grid_positions:
         pump_pocket = (
             cq.Workplane("XY")
             .workplane(offset=FLOOR_H)
-            .center(PUMP_CENTER_X, py)
+            .center(px, py)
             .rect(PUMP_BODY_W, PUMP_BODY_D)
             .extrude(PUMP_BODY_H + 2)
         )
@@ -488,23 +487,45 @@ def build_base():
             ledge = (
                 cq.Workplane("XY")
                 .workplane(offset=FLOOR_H)
-                .center(PUMP_CENTER_X,
+                .center(px,
                         py + _ledge_side * (PUMP_BODY_D / 2 - PUMP_LEDGE_LIP / 2))
                 .rect(PUMP_BODY_W - 4, PUMP_LEDGE_LIP)
                 .extrude(PUMP_LEDGE_H)
             )
             base = base.union(ledge)
 
-    # Tube pass-through holes in LEFT divider (pump output -> reservoir)
-    for py in pump_y_positions:
+    # Tube pass-through holes in divider (pump output -> reservoir)
+    # One hole per unique pump Y position
+    for tube_y in _all_pump_ys:
         tube_out = (
             cq.Workplane("XY")
             .workplane(offset=FLOOR_H + divider_h - 8)
-            .center(DIVIDER_WET_X, py)
-            .circle(3)
+            .center(DIVIDER_WET_X, tube_y)
+            .circle(TUBE_HOLE_DIA / 2)
             .extrude(10)
         )
         base = base.cut(tube_out)
+
+    # === TUBING CHANNELS (base floor) ===
+    # Collector channel parallel to divider (right-column pump tubes route here)
+    _tube_collector_x = DIVIDER_WET_X + WALL_INNER / 2 + 3
+    tube_collector = (
+        cq.Workplane("XY")
+        .box(TUBE_CHANNEL_W, 60, TUBE_CHANNEL_D)
+        .translate((_tube_collector_x, 0, FLOOR_H + TUBE_CHANNEL_D / 2))
+    )
+    base = base.cut(tube_collector)
+
+    # Spur channels from each right-column pump to collector
+    for rpy in _pump_right_col_ys:
+        spur_length = abs(_pump_right_col_cx - _tube_collector_x)
+        tube_spur = (
+            cq.Workplane("XY")
+            .box(spur_length, TUBE_SPUR_W, TUBE_CHANNEL_D)
+            .translate(((_pump_right_col_cx + _tube_collector_x) / 2,
+                        rpy, FLOOR_H + TUBE_CHANNEL_D / 2))
+        )
+        base = base.cut(tube_spur)
 
     # === CENTER ZONE UPPER LEVEL — tray support ledges ===
     interior_y_min = -(MEETING_D / 2 - WALL - 2)
@@ -534,7 +555,7 @@ def build_base():
     base = base.union(tray_ledge_right)
 
     # Registration tab slots (2 on left divider, 2 on right outer wall)
-    _tab_y_positions = [interior_y_min + 20, interior_y_max - 20]
+    _tab_y_positions = [interior_y_min + 15, interior_y_max - 15]
     for tab_y in _tab_y_positions:
         # Left divider tab slot
         tab_slot_left = (
@@ -557,10 +578,11 @@ def build_base():
         base = base.cut(tab_slot_right)
 
     # --- USB-C port cutout (rear wall of center zone) ---
+    _usbc_x = (_pump_left_col_cx + _pump_right_col_cx) / 2
     usbc_cutout = (
         cq.Workplane("XY")
         .workplane(offset=TRAY_Z + TRAY_FLOOR + 3)
-        .center(PUMP_CENTER_X, BASE_D / 2)
+        .center(_usbc_x, BASE_D / 2)
         .rect(USBC_PORT_W, WALL + 2)
         .extrude(USBC_PORT_H)
     )
@@ -568,11 +590,12 @@ def build_base():
 
     # === WIRE CHANNEL NETWORK (base floor only) ===
     # Atomizer spur: center zone floor -> left divider -> wet zone -> atomizer
-    _atm_spur_y = interior_y_min + 3
+    # Route through the gap between the 2 left-column pumps (Y~0)
+    _atm_spur_y = 0  # wire corridor runs at Y=0 between left-col pumps
 
-    # Segment 1: center zone floor, along front wall
+    # Segment 1: center zone floor, from divider to left column
     _atm_seg1_x_start = DIVIDER_WET_X + WALL_INNER / 2 + 1
-    _atm_seg1_x_end = PUMP_CENTER_X
+    _atm_seg1_x_end = _pump_left_col_cx - PUMP_BODY_W / 2 - 1
     atm_seg1 = (
         cq.Workplane("XY")
         .box(abs(_atm_seg1_x_end - _atm_seg1_x_start), CHANNEL_W, CHANNEL_D)
@@ -591,15 +614,6 @@ def build_base():
                      FLOOR_H + CHANNEL_D / 2))
     )
     base = base.cut(atm_seg2)
-
-    # Segment 3: turn from front wall toward atomizer center
-    atm_seg3 = (
-        cq.Workplane("XY")
-        .box(CHANNEL_W, abs(ATOMIZER_POS_Y - _atm_spur_y), CHANNEL_D)
-        .translate((ATOMIZER_POS_X, (_atm_spur_y + ATOMIZER_POS_Y) / 2,
-                     FLOOR_H + CHANNEL_D / 2))
-    )
-    base = base.cut(atm_seg3)
 
     # === CROSS-DIVIDER WIRE PORTS ===
 
@@ -691,7 +705,7 @@ def build_base():
     hex_panel_z = BASE_H - hex_panel_h - WALL - 2
 
     # Front wall hex mesh
-    hex_front = hex_mesh_cutout(BASE_W * 0.7, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
+    hex_front = hex_mesh_cutout(BASE_W * 0.6, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
     hex_front_pos = (hex_front
         .rotateAboutCenter((1, 0, 0), 90)
         .translate((0, -(BASE_D / 2 - _taper_shrink_base * 0.5), hex_panel_z + hex_panel_h / 2)))
@@ -706,14 +720,14 @@ def build_base():
     base = base.cut(hex_left_pos)
 
     # Rear wall hex mesh
-    hex_rear = hex_mesh_cutout(BASE_W * 0.5, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
+    hex_rear = hex_mesh_cutout(BASE_W * 0.4, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
     hex_rear_pos = (hex_rear
         .rotateAboutCenter((1, 0, 0), 90)
         .translate((0, (BASE_D / 2 - _taper_shrink_base * 0.5), hex_panel_z + hex_panel_h / 2)))
     base = base.cut(hex_rear_pos)
 
     # Right wall hex mesh
-    hex_right = hex_mesh_cutout(BASE_D * 0.5, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
+    hex_right = hex_mesh_cutout(BASE_D * 0.4, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
     hex_right_pos = (hex_right
         .rotateAboutCenter((0, 0, 1), 90)
         .rotateAboutCenter((0, 1, 0), 90)
@@ -735,7 +749,7 @@ def build_base():
 
     # --- SOMNI LABS branding (rear panel, +Y wall) ---
     brand_z = BASE_H * 0.30
-    logo_cx = -22
+    logo_cx = -15       # adjusted for narrower rear panel
     groove_r = 0.6
     groove_d = BRAND_DEPTH
 
@@ -807,14 +821,14 @@ def build_base():
         brand_main = (
             cq.Workplane("XZ")
             .workplane(offset=BASE_D / 2)
-            .center(4, brand_z + 4)
+            .center(10, brand_z + 4)
             .text("SOMNI", BRAND_FONT_SIZE, -BRAND_DEPTH, font="sans-serif")
         )
         base = base.cut(brand_main)
         brand_sub = (
             cq.Workplane("XZ")
             .workplane(offset=BASE_D / 2)
-            .center(4, brand_z - 6)
+            .center(10, brand_z - 6)
             .text("LABS", BRAND_SUB_SIZE, -BRAND_DEPTH, font="sans-serif")
         )
         base = base.cut(brand_sub)
@@ -822,13 +836,14 @@ def build_base():
         brand_recess = (
             cq.Workplane("XY")
             .workplane(offset=brand_z)
-            .center(4, BASE_D / 2)
+            .center(10, BASE_D / 2)
             .rect(45, 16)
             .extrude(-BRAND_DEPTH)
         )
         base = base.cut(brand_recess)
 
     return base
+
 
 
 # =============================================================================
