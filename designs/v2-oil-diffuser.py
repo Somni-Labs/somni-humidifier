@@ -596,6 +596,7 @@ def build_base():
     _bottle_right = BOTTLE_ROW_X + BOTTLE_WELL_DIA / 2 + 4  # bottle + retainer + catch
     elec_col_x = (_bottle_right + dry_right) / 2
     interior_y_min = -(MEETING_D / 2 - WALL - 2)
+    interior_y_max = (MEETING_D / 2 - WALL - 2)
     y_cursor = interior_y_min  # start from front wall
 
     # PD trigger + Buck converter Z-STACKED (buck on floor, PD on top)
