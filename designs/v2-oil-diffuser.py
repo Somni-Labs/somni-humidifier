@@ -1145,6 +1145,221 @@ def build_top_shell():
 
 
 # =============================================================================
+# FITMENT COMPONENTS — simplified solid models for visual fit check
+# =============================================================================
+# These are NOT 3D-printed parts. They represent the real electronic and
+# mechanical components placed in their pockets so you can verify clearance.
+# Each is rendered with a distinct color to identify it in the viewer.
+
+def build_components():
+    """Build simplified solid models of all internal components at their
+    installed positions. Returns a dict of {name: (solid, color)}."""
+
+    parts = {}
+
+    # --- Recompute dry zone positions (same as build_base) ---
+    dry_left = DIVIDER_DRY_X + WALL_INNER / 2
+    dry_right = MEETING_W / 2 - WALL
+    dry_center_x = (dry_left + dry_right) / 2
+
+    # =============================================
+    # WET ZONE components
+    # =============================================
+
+    # Atomizer piezo disk (20mm dia × 3mm, mounted flush in floor)
+    atomizer_disk = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H - 1)
+        .center(ATOMIZER_POS_X, ATOMIZER_POS_Y)
+        .circle(ATOMIZER_DIA / 2)
+        .extrude(3)
+    )
+    parts["atomizer_disk"] = (atomizer_disk, (0.75, 0.75, 0.15, 0.95))  # gold
+
+    # Atomizer driver board (35×25mm, in dry zone near left divider)
+    driver_x = DIVIDER_DRY_X + WALL_INNER / 2 + 5 + ATOMIZER_DRIVER_W / 2
+    atomizer_driver = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H + 0.5)
+        .center(driver_x, -45)
+        .rect(ATOMIZER_DRIVER_W, ATOMIZER_DRIVER_D)
+        .extrude(6)
+    )
+    parts["atomizer_driver"] = (atomizer_driver, (0.2, 0.6, 0.2, 0.95))  # green PCB
+
+    # Water (simplified as a transparent blue block filling wet zone)
+    # Water level at ~40mm above floor (about 60% full)
+    water_level = 40
+    _wet_left_x = -(MEETING_W / 2 - WALL)
+    _wet_width = abs(DIVIDER_WET_X - _wet_left_x) - WALL_INNER
+    _wet_depth = MEETING_D - WALL * 2 - 4
+    water = (
+        cq.Workplane("XY")
+        .box(_wet_width - 4, _wet_depth - 4, water_level)
+        .translate(((_wet_left_x + DIVIDER_WET_X) / 2, 0, FLOOR_H + water_level / 2))
+    )
+    parts["water"] = (water, (0.15, 0.4, 0.85, 0.25))  # translucent blue
+
+    # =============================================
+    # PUMP ROW components
+    # =============================================
+
+    # 5× WX3 micro peristaltic pumps
+    for i, py in enumerate(pump_y_positions):
+        pump = (
+            cq.Workplane("XY")
+            .workplane(offset=FLOOR_H + 0.5)
+            .center(PUMP_CENTER_X, py)
+            .rect(PUMP_BODY_W, PUMP_BODY_D)
+            .extrude(PUMP_BODY_H)
+        )
+        parts[f"pump_{i}"] = (pump, (0.85, 0.45, 0.1, 0.9))  # orange
+
+    # =============================================
+    # DRY ZONE — Bottles
+    # =============================================
+
+    # 5× 15ml essential oil bottles (cylinder body + smaller cap)
+    for i, by in enumerate(bottle_y_positions):
+        # Bottle body (22mm dia)
+        bottle_body_h = BOTTLE_HEIGHT - 15  # body portion
+        body = (
+            cq.Workplane("XY")
+            .workplane(offset=FLOOR_H + BOTTLE_WELL_DEPTH)
+            .center(BOTTLE_ROW_X, by)
+            .circle(BOTTLE_DIA / 2)
+            .extrude(bottle_body_h)
+        )
+        # Bottle cap/neck (18mm dia, sits on top of body)
+        cap_h = 15
+        cap = (
+            cq.Workplane("XY")
+            .workplane(offset=FLOOR_H + BOTTLE_WELL_DEPTH + bottle_body_h)
+            .center(BOTTLE_ROW_X, by)
+            .circle(BOTTLE_CAP_DIA / 2)
+            .extrude(cap_h)
+        )
+        bottle = body.union(cap)
+        # Alternate amber/brown colors for different "scents"
+        colors = [
+            (0.6, 0.35, 0.05, 0.8),   # amber
+            (0.45, 0.25, 0.1, 0.8),    # dark brown
+            (0.55, 0.4, 0.15, 0.8),    # light amber
+            (0.4, 0.2, 0.05, 0.8),     # deep brown
+            (0.65, 0.45, 0.1, 0.8),    # golden
+        ]
+        parts[f"bottle_{i}"] = (bottle, colors[i % len(colors)])
+
+    # =============================================
+    # DRY ZONE — Electronics
+    # =============================================
+
+    # ESP32 DevKit (55×28mm, rotated, rear of dry zone)
+    esp32 = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H + 0.5)
+        .center(dry_center_x, 45)
+        .rect(ESP32_D, ESP32_W)  # rotated
+        .extrude(ESP32_H)
+    )
+    parts["esp32"] = (esp32, (0.1, 0.35, 0.7, 0.95))  # blue PCB
+
+    # 6× MOSFET modules (two columns of 3)
+    mosfet_x_left = dry_center_x - MOSFET_W / 2 - 2
+    mosfet_x_right = dry_center_x + MOSFET_W / 2 + 2
+    mosfet_y_positions = [-(MOSFET_COUNT - 1) / 2 * (MOSFET_D + 3) + i * (MOSFET_D + 3)
+                          for i in range(MOSFET_COUNT)]
+    for i in range(MOSFET_COUNT):
+        mx = mosfet_x_left if i < 3 else mosfet_x_right
+        my = mosfet_y_positions[i % 3] if i >= 3 else mosfet_y_positions[i]
+        mosfet = (
+            cq.Workplane("XY")
+            .workplane(offset=FLOOR_H + 0.5)
+            .center(mx, my)
+            .rect(MOSFET_W, MOSFET_D)
+            .extrude(MOSFET_H)
+        )
+        parts[f"mosfet_{i}"] = (mosfet, (0.15, 0.55, 0.15, 0.9))  # green
+
+    # CH224K PD trigger board
+    pd_x = dry_center_x + 15
+    pd_y = MEETING_D / 2 - WALL - PD_TRIGGER_D / 2 - 5
+    pd_trigger = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H + 0.5)
+        .center(pd_x, pd_y)
+        .rect(PD_TRIGGER_W, PD_TRIGGER_D)
+        .extrude(PD_TRIGGER_H)
+    )
+    parts["pd_trigger"] = (pd_trigger, (0.7, 0.1, 0.1, 0.95))  # red PCB
+
+    # MP1584EN buck converter
+    buck_x = pd_x - PD_TRIGGER_W / 2 - BUCK_CONV_W / 2 - 3
+    buck_y = pd_y
+    buck_conv = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H + 0.5)
+        .center(buck_x, buck_y)
+        .rect(BUCK_CONV_W, BUCK_CONV_D)
+        .extrude(BUCK_CONV_H)
+    )
+    parts["buck_converter"] = (buck_conv, (0.5, 0.1, 0.5, 0.95))  # purple PCB
+
+    # BME280 sensor
+    bme_x = dry_center_x + 15
+    bme_y = -(MEETING_D / 2 - WALL - BME280_D / 2 - 5)
+    bme280 = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H + 0.5)
+        .center(bme_x, bme_y)
+        .rect(BME280_W, BME280_D)
+        .extrude(BME280_H)
+    )
+    parts["bme280"] = (bme280, (0.3, 0.3, 0.8, 0.95))  # light blue
+
+    # =============================================
+    # LED strip (simplified as thin colored ring)
+    # =============================================
+    led_z = BASE_H - WALL - LED_CHANNEL_D - 2
+    _t_led = (led_z + LED_CHANNEL_W / 2) / BASE_H
+    _w_at_led = BASE_W + _t_led * (MEETING_W - BASE_W)
+    _d_at_led = BASE_D + _t_led * (MEETING_D - BASE_D)
+
+    # Front strip
+    led_f = (
+        cq.Workplane("XY")
+        .box(_w_at_led - WALL * 2 - 8, 3, LED_CHANNEL_W - 1)
+        .translate((0, -(_d_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1),
+                    led_z + LED_CHANNEL_W / 2))
+    )
+    # Rear strip
+    led_r = (
+        cq.Workplane("XY")
+        .box(_w_at_led - WALL * 2 - 8, 3, LED_CHANNEL_W - 1)
+        .translate((0, _d_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1,
+                    led_z + LED_CHANNEL_W / 2))
+    )
+    # Left strip
+    led_l = (
+        cq.Workplane("XY")
+        .box(3, _d_at_led - WALL * 2 - 8, LED_CHANNEL_W - 1)
+        .translate((-(_w_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1), 0,
+                    led_z + LED_CHANNEL_W / 2))
+    )
+    # Right strip
+    led_ri = (
+        cq.Workplane("XY")
+        .box(3, _d_at_led - WALL * 2 - 8, LED_CHANNEL_W - 1)
+        .translate((_w_at_led / 2 - WALL - LED_CHANNEL_D / 2 + 1, 0,
+                    led_z + LED_CHANNEL_W / 2))
+    )
+    led_strip = led_f.union(led_r).union(led_l).union(led_ri)
+    parts["led_strip"] = (led_strip, (0.2, 1.0, 0.3, 0.8))  # bright green
+
+    return parts
+
+
+# =============================================================================
 # ASSEMBLY — color-coded per zone for visibility
 # =============================================================================
 #
@@ -1305,6 +1520,12 @@ mist_btn_marker = (
 )
 show_object(mist_btn_marker, name="btn_mist",
             options={"color": (0.08, 0.82, 0.82, 0.95)})  # cyan/teal
+
+# --- Internal components (fitment check) ---
+components = build_components()
+for comp_name, (comp_solid, comp_color) in components.items():
+    show_object(comp_solid, name=f"comp_{comp_name}",
+                options={"color": comp_color})
 
 
 # =============================================================================
