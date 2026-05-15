@@ -173,7 +173,7 @@ CHANNEL_NOTCH_H = 3.0
 # Cross-divider wire ports
 WIRE_PORT_W = 5.0
 WIRE_PORT_H = 4.0
-WIRE_PORT_Z = FLOOR_H + 1
+WIRE_PORT_Z_ABOVE_WATER = FLOOR_H + 45  # above max water level (43mm) + margin
 
 # --- Tubing channels (base floor) ---
 TUBE_CHANNEL_W = 4           # collector channel width
@@ -570,43 +570,63 @@ def build_base():
     )
     base = base.cut(usbc_cutout)
 
-    # === WIRE CHANNEL NETWORK (base floor only) ===
-    # Atomizer spur: wires route through divider port, then through air gap
-    # between left-column pumps (tight but sufficient for thin wires)
-    _atm_spur_y = 0  # wire corridor runs at Y=0
+    # === WIRE ROUTING ===
+    # Atomizer wires must stay DRY. Water level reaches Z ≈ FLOOR_H + 40 = 43mm.
+    # Route: atomizer → UP divider wall (sealed vertical channel on wet side)
+    #        → cross divider ABOVE water line at Z=48 → center zone → tray
+    #
+    # Other wires (pump power, LED, buttons) stay in the center zone / tray
+    # and never contact water.
 
-    # Wet zone channel: from left divider to atomizer X position
-    _atm_seg2_x_start = ATOMIZER_POS_X
-    _atm_seg2_x_end = DIVIDER_WET_X - WALL_INNER / 2 - 1
-    atm_seg2 = (
+    # --- Atomizer vertical wire chase (wet side of divider wall) ---
+    # Sealed channel running up the wet face of the divider from floor to above water
+    _atm_chase_z_bot = FLOOR_H
+    _atm_chase_z_top = FLOOR_H + 45  # 48mm — above max water level (43mm) + margin
+    _atm_chase_x = DIVIDER_WET_X - WALL_INNER / 2 - CHANNEL_W / 2  # wet side of divider
+    atm_vertical_chase = (
         cq.Workplane("XY")
-        .box(abs(_atm_seg2_x_end - _atm_seg2_x_start), CHANNEL_W, CHANNEL_D)
-        .translate(((_atm_seg2_x_start + _atm_seg2_x_end) / 2, _atm_spur_y,
+        .box(CHANNEL_W, CHANNEL_W, _atm_chase_z_top - _atm_chase_z_bot)
+        .translate((_atm_chase_x, 0,
+                    (_atm_chase_z_bot + _atm_chase_z_top) / 2))
+    )
+    base = base.cut(atm_vertical_chase)
+
+    # --- Atomizer horizontal run (wet zone floor, from atomizer to divider) ---
+    # This short run is on the floor and WILL be submerged — wires are waterproof
+    # silicone-jacketed. The channel just keeps them tidy.
+    _atm_floor_x_start = ATOMIZER_POS_X
+    _atm_floor_x_end = _atm_chase_x
+    atm_floor_run = (
+        cq.Workplane("XY")
+        .box(abs(_atm_floor_x_end - _atm_floor_x_start), CHANNEL_W, CHANNEL_D)
+        .translate(((_atm_floor_x_start + _atm_floor_x_end) / 2, 0,
                      FLOOR_H + CHANNEL_D / 2))
     )
-    base = base.cut(atm_seg2)
+    base = base.cut(atm_floor_run)
 
-    # === CROSS-DIVIDER WIRE PORTS ===
-
-    # Left divider: atomizer spur port
-    atm_port_left = (
+    # --- Cross-divider wire port (ABOVE water line) ---
+    _wire_port_z_above_water = FLOOR_H + 45  # Z=48, above water level
+    atm_cross_port = (
         cq.Workplane("XY")
-        .workplane(offset=WIRE_PORT_Z)
-        .center(DIVIDER_WET_X, _atm_spur_y)
+        .workplane(offset=_wire_port_z_above_water)
+        .center(DIVIDER_WET_X, 0)
         .rect(WALL_INNER + 2, WIRE_PORT_W)
         .extrude(WIRE_PORT_H)
     )
-    base = base.cut(atm_port_left)
+    base = base.cut(atm_cross_port)
 
-    # Left divider: tray wire pass-through
-    tray_wire_port = (
+    # --- Pump power wire drop (tray floor → pump level) ---
+    # Wires drop from tray through a slot in the tray floor area
+    # to reach pumps below. Runs along the gap between left-column pumps at Y≈0.
+    _pump_wire_drop_z_top = TRAY_Z
+    _pump_wire_drop_z_bot = FLOOR_H + PUMP_BODY_H + 1  # just above pump tops
+    pump_wire_drop = (
         cq.Workplane("XY")
-        .workplane(offset=TRAY_Z + TRAY_FLOOR)
-        .center(DIVIDER_WET_X, 0)
-        .rect(WALL_INNER + 2, 8)
-        .extrude(6)
+        .box(CHANNEL_W, 6, _pump_wire_drop_z_top - _pump_wire_drop_z_bot)
+        .translate((_pump_left_col_cx, 0,
+                    (_pump_wire_drop_z_top + _pump_wire_drop_z_bot) / 2))
     )
-    base = base.cut(tray_wire_port)
+    base = base.cut(pump_wire_drop)
 
     # --- Rubber feet ---
     foot_coords = [
@@ -1536,20 +1556,174 @@ def build_components():
     parts["led_strip"] = (led_strip, (0.2, 1.0, 0.3, 0.8))  # bright green
 
     # =============================================
-    # WIRE CHANNEL VISUALIZATION (base floor only)
+    # WIRING VISUALIZATION (all routes)
     # =============================================
-    _ch_z = FLOOR_H + CHANNEL_D / 2
-    _atm_spur_y = 0
+    # Color coding:
+    #   Magenta  = atomizer wires (power to piezo, through wet zone)
+    #   Yellow   = pump power wires (MOSFET → pumps)
+    #   Cyan     = signal/data wires (ESP32 ↔ peripherals)
+    #   Orange   = power bus (USB-C → PD/Buck → 5V rail)
 
-    # Atomizer spur: wet zone horizontal (divider to atomizer)
-    _as2_xs = ATOMIZER_POS_X
-    _as2_xe = DIVIDER_WET_X - WALL_INNER / 2 - 1
-    atm_s2_vis = (
+    _wire_t = 1.5   # wire visualization thickness
+    _magenta = (0.85, 0.15, 0.85, 0.85)
+    _yellow  = (0.9, 0.85, 0.1, 0.85)
+    _cyan    = (0.1, 0.85, 0.85, 0.85)
+    _orange_w = (1.0, 0.55, 0.1, 0.85)
+
+    # --- Atomizer wires (magenta): atomizer → floor → up divider → across → tray ---
+    _atm_chase_x = DIVIDER_WET_X - WALL_INNER / 2 - CHANNEL_W / 2
+
+    # Segment 1: floor run (atomizer to divider base)
+    atm_w1 = (
         cq.Workplane("XY")
-        .box(abs(_as2_xe - _as2_xs), CHANNEL_W - 0.5, CHANNEL_D - 0.5)
-        .translate(((_as2_xs + _as2_xe) / 2, _atm_spur_y, _ch_z))
+        .box(abs(_atm_chase_x - ATOMIZER_POS_X), _wire_t, _wire_t)
+        .translate(((ATOMIZER_POS_X + _atm_chase_x) / 2, 0, FLOOR_H + CHANNEL_D / 2))
     )
-    parts["wire_atm_spur"] = (atm_s2_vis, (0.85, 0.15, 0.85, 0.85))
+    parts["wire_atm_floor"] = (atm_w1, _magenta)
+
+    # Segment 2: vertical chase up divider wall (wet side)
+    _atm_chase_z_bot = FLOOR_H
+    _atm_chase_z_top = FLOOR_H + 45
+    atm_w2 = (
+        cq.Workplane("XY")
+        .box(_wire_t, _wire_t, _atm_chase_z_top - _atm_chase_z_bot)
+        .translate((_atm_chase_x, 0, (_atm_chase_z_bot + _atm_chase_z_top) / 2))
+    )
+    parts["wire_atm_vertical"] = (atm_w2, _magenta)
+
+    # Segment 3: cross divider (above water line, Z=48)
+    atm_w3 = (
+        cq.Workplane("XY")
+        .box(WALL_INNER + 2, _wire_t, _wire_t)
+        .translate((DIVIDER_WET_X, 0, _atm_chase_z_top + WIRE_PORT_H / 2))
+    )
+    parts["wire_atm_cross"] = (atm_w3, _magenta)
+
+    # Segment 4: center zone side, drop DOWN from cross port (Z=48) to tray (Z=34)
+    _atm_center_x = DIVIDER_WET_X + WALL_INNER / 2 + 1
+    _atm_seg4_height = abs(_atm_chase_z_top - _tray_floor_z)
+    if _atm_seg4_height > 0.5:
+        atm_w4 = (
+            cq.Workplane("XY")
+            .box(_wire_t, _wire_t, _atm_seg4_height)
+            .translate((_atm_center_x, 0,
+                        (min(_atm_chase_z_top, _tray_floor_z) + max(_atm_chase_z_top, _tray_floor_z)) / 2))
+        )
+        parts["wire_atm_to_tray"] = (atm_w4, _magenta)
+
+    # --- Pump power wires (yellow): MOSFET on tray → drop down → each pump ---
+    # Vertical drop from tray to pump level
+    _pump_wire_z_top = _tray_floor_z
+    _pump_wire_z_bot = FLOOR_H + PUMP_BODY_H + 1
+    pump_drop = (
+        cq.Workplane("XY")
+        .box(_wire_t, 4, _pump_wire_z_top - _pump_wire_z_bot)
+        .translate((_pump_left_col_cx, 0,
+                    (_pump_wire_z_top + _pump_wire_z_bot) / 2))
+    )
+    parts["wire_pump_drop"] = (pump_drop, _yellow)
+
+    # Horizontal runs from wire drop to each pump (at pump top Z)
+    _pump_wire_z = FLOOR_H + PUMP_BODY_H + 0.5
+    for pi, (px, py) in enumerate(pump_grid_positions):
+        _horiz_dist = abs(px - _pump_left_col_cx)
+        if _horiz_dist < 1:
+            # Left-column pump: just a short Y jog from the wire drop
+            if abs(py) > 1:
+                pw = (
+                    cq.Workplane("XY")
+                    .box(_wire_t, abs(py) + 1, _wire_t)
+                    .translate((_pump_left_col_cx, py / 2, _pump_wire_z))
+                )
+                parts[f"wire_pump_{pi}"] = (pw, _yellow)
+        else:
+            # Right-column pump: horizontal run from drop to pump X, then Y jog
+            pw_x = (
+                cq.Workplane("XY")
+                .box(_horiz_dist, _wire_t, _wire_t)
+                .translate(((px + _pump_left_col_cx) / 2, 0, _pump_wire_z))
+            )
+            if abs(py) > 1:
+                pw_y = (
+                    cq.Workplane("XY")
+                    .box(_wire_t, abs(py) + 1, _wire_t)
+                    .translate((px, py / 2, _pump_wire_z))
+                )
+                pw_x = pw_x.union(pw_y)
+            parts[f"wire_pump_{pi}"] = (pw_x, _yellow)
+
+    # --- USB-C → Power bus (orange): USB-C rear → PD/Buck → 5V rail on tray ---
+    _usbc_x = (_pump_left_col_cx + _pump_right_col_cx) / 2
+    _usbc_z = TRAY_Z + TRAY_FLOOR + 3 + USBC_PORT_H / 2
+    # Short run from USB-C port inward to tray
+    usbc_wire = (
+        cq.Workplane("XY")
+        .box(_wire_t, 8, _wire_t)
+        .translate((_usbc_x, interior_y_max - 4, _usbc_z))
+    )
+    parts["wire_usbc_in"] = (usbc_wire, _orange_w)
+
+    # =============================================
+    # TUBING VISUALIZATION (bottle → pump → reservoir)
+    # =============================================
+    # Color: soft blue for inlet tubes (bottle→pump), red for outlet (pump→reservoir)
+    _tube_t = 2.0   # tube visualization thickness (3mm OD silicone)
+    _tube_in_color = (0.3, 0.5, 0.9, 0.7)    # soft blue (inlet)
+    _tube_out_color = (0.9, 0.3, 0.3, 0.7)    # soft red (outlet)
+
+    # Inlet tubes: from each bottle (cap-down in top shell) to its paired pump
+    # Tubes drop vertically from bottle cap through shell interior to pump top
+    for i, ((bx, by), (px, py)) in enumerate(zip(bottle_grid_positions, pump_grid_positions)):
+        _cap_z = BASE_H + TOP_H - WALL - BOTTLE_WELL_DEPTH  # ~127mm
+        _pump_top_z = FLOOR_H + PUMP_BODY_H  # ~28mm
+
+        # Vertical drop from bottle to pump Z level
+        tube_vert = (
+            cq.Workplane("XY")
+            .box(_tube_t, _tube_t, _cap_z - _pump_top_z)
+            .translate((bx, by, (_cap_z + _pump_top_z) / 2))
+        )
+        # Horizontal jog from bottle X/Y to pump X/Y (at pump top level)
+        _jog_len_x = abs(px - bx)
+        _jog_len_y = abs(py - by)
+        tube_jog_parts = tube_vert
+        if _jog_len_x > 1:
+            jog_x = (
+                cq.Workplane("XY")
+                .box(_jog_len_x, _tube_t, _tube_t)
+                .translate(((bx + px) / 2, by, _pump_top_z))
+            )
+            tube_jog_parts = tube_jog_parts.union(jog_x)
+        if _jog_len_y > 1:
+            jog_y = (
+                cq.Workplane("XY")
+                .box(_tube_t, _jog_len_y, _tube_t)
+                .translate((px, (by + py) / 2, _pump_top_z))
+            )
+            tube_jog_parts = tube_jog_parts.union(jog_y)
+
+        parts[f"tube_inlet_{i}"] = (tube_jog_parts, _tube_in_color)
+
+    # Outlet tubes: from each pump to divider pass-through hole
+    _divider_hole_z = FLOOR_H + (TRAY_Z - FLOOR_H) - 8  # ~24mm, near top of lower divider
+    for i, (px, py) in enumerate(pump_grid_positions):
+        _pump_out_z = FLOOR_H + PUMP_BODY_H  # pump output at top
+        # Horizontal run from pump to divider
+        tube_out_horiz = (
+            cq.Workplane("XY")
+            .box(abs(px - DIVIDER_WET_X), _tube_t, _tube_t)
+            .translate(((px + DIVIDER_WET_X) / 2, py, _divider_hole_z))
+        )
+        # Vertical jog if pump output Z ≠ divider hole Z
+        if abs(_pump_out_z - _divider_hole_z) > 1:
+            tube_out_vert = (
+                cq.Workplane("XY")
+                .box(_tube_t, _tube_t, abs(_pump_out_z - _divider_hole_z))
+                .translate((px, py, (_pump_out_z + _divider_hole_z) / 2))
+            )
+            tube_out_horiz = tube_out_horiz.union(tube_out_vert)
+
+        parts[f"tube_outlet_{i}"] = (tube_out_horiz, _tube_out_color)
 
     return parts
 
