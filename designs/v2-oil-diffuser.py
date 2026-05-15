@@ -658,42 +658,43 @@ def build_base():
          (-4.5,-3.5),(-3.8,-4.89),(-2.71,-5.04),(-2.5,-5.0)],
     ]
 
-    # Cut each S-curve by placing overlapping cylindrical cuts along the path.
-    # Each cylinder is extruded from outside the wall inward (Y direction).
-    # This is reliable — no spline sweep needed.
+    # Cut each S-curve by placing small box cuts at each waypoint, translated
+    # to the rear wall (+Y face). CadQuery's XZ workplane extrude doesn't
+    # reliably cut at large Y offsets, so we use box().translate() instead.
+    groove_size = groove_r * 2  # 1.2mm square cross-section per cut
     for curve_pts in s_curves:
         for cx_pt, cz_pt in curve_pts:
             px = logo_cx + cx_pt
             pz = brand_z + cz_pt
             cut = (
-                cq.Workplane("XZ")
-                .workplane(offset=BASE_D / 2)
-                .center(px, pz)
-                .circle(groove_r)
-                .extrude(-groove_d)
+                cq.Workplane("XY")
+                .box(groove_size, groove_d + 1, groove_size)
+                .translate((px, BASE_D / 2 - groove_d / 2 + 0.5, pz))
             )
             base = base.cut(cut)
 
-    # Center circle (ring + filled dot) — the "eye" focal point
-    center_ring_r = 2.0    # slightly larger for visibility
-    center_dot_r = 0.8
-    ring = (
-        cq.Workplane("XZ")
-        .workplane(offset=BASE_D / 2)
-        .center(logo_cx, brand_z)
-        .circle(center_ring_r + groove_r)
-        .circle(center_ring_r - groove_r)
-        .extrude(-groove_d)
+    # Center circle — approximate with ring of small box cuts
+    center_ring_r = 2.0
+    center_dot_r = 1.0
+    num_ring_pts = 16
+    for i in range(num_ring_pts):
+        angle = 2 * math.pi * i / num_ring_pts
+        rx = logo_cx + center_ring_r * math.cos(angle)
+        rz = brand_z + center_ring_r * math.sin(angle)
+        ring_cut = (
+            cq.Workplane("XY")
+            .box(groove_size, groove_d + 1, groove_size)
+            .translate((rx, BASE_D / 2 - groove_d / 2 + 0.5, rz))
+        )
+        base = base.cut(ring_cut)
+
+    # Center dot
+    dot_cut = (
+        cq.Workplane("XY")
+        .box(center_dot_r * 2, groove_d + 1, center_dot_r * 2)
+        .translate((logo_cx, BASE_D / 2 - groove_d / 2 + 0.5, brand_z))
     )
-    base = base.cut(ring)
-    dot = (
-        cq.Workplane("XZ")
-        .workplane(offset=BASE_D / 2)
-        .center(logo_cx, brand_z)
-        .circle(center_dot_r)
-        .extrude(-groove_d)
-    )
-    base = base.cut(dot)
+    base = base.cut(dot_cut)
 
     # Wordmark: "SOMNI" + "LABS" to the right of the icon
     try:
