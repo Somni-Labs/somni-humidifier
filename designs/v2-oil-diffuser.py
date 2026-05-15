@@ -1253,17 +1253,17 @@ def build_top_shell():
     # BOTTLES+STORAGE ZONE (right) — bottle wells + open storage
     # =============================================
 
-    # 5 bottle wells recessed 3mm into ceiling with retaining rings
+    # 3+2 bottle grid recessed 3mm into ceiling with retaining rings
     _ceiling_z = TOP_H - WALL  # inner ceiling surface
     _retainer_ring_h = 15      # ring hangs down from ceiling
     _retainer_ring_wall = 2    # ring wall thickness
 
-    for by in bottle_y_positions:
+    for bx, by in bottle_grid_positions:
         # Well recess into ceiling (3mm deep)
         well_recess = (
             cq.Workplane("XY")
             .workplane(offset=_ceiling_z - BOTTLE_WELL_DEPTH)
-            .center(BOTTLE_ROW_X_TOP, by)
+            .center(bx, by)
             .circle(BOTTLE_WELL_DIA / 2)
             .extrude(BOTTLE_WELL_DEPTH + 0.1)
         )
@@ -1273,14 +1273,14 @@ def build_top_shell():
         ring_outer = (
             cq.Workplane("XY")
             .workplane(offset=_ceiling_z - BOTTLE_WELL_DEPTH - _retainer_ring_h)
-            .center(BOTTLE_ROW_X_TOP, by)
+            .center(bx, by)
             .circle(BOTTLE_WELL_DIA / 2 + _retainer_ring_wall)
             .extrude(_retainer_ring_h)
         )
         ring_inner = (
             cq.Workplane("XY")
             .workplane(offset=_ceiling_z - BOTTLE_WELL_DEPTH - _retainer_ring_h - 0.1)
-            .center(BOTTLE_ROW_X_TOP, by)
+            .center(bx, by)
             .circle(BOTTLE_WELL_DIA / 2)
             .extrude(_retainer_ring_h + 0.2)
         )
