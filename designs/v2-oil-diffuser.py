@@ -169,6 +169,34 @@ BME280_W = 15
 BME280_D = 12
 BME280_H = 5
 
+# --- PCB retention features ---
+# Rail slots (ESP32, MOSFET board, PD trigger) — board slides in from top
+RAIL_GROOVE_W = 1.2          # groove width in pocket wall
+RAIL_GROOVE_D = 1.5          # groove depth into pocket wall
+RAIL_CLEARANCE = 0.3         # clearance per side
+RAIL_LIFT = 2.0              # board sits this far above pocket floor
+RAIL_CHAMFER = 0.5           # entry chamfer at top of rail
+
+# Snap tabs (buck converter, atomizer driver) — press-fit nubs
+SNAP_NUB_W = 1.5             # nub width along pocket wall
+SNAP_NUB_H = 1.0             # nub protrusion from wall
+SNAP_NUB_ANGLE = 45          # entry ramp angle (degrees)
+
+# Pump shelf ledges — anti-vibration lips inside pump pockets
+PUMP_LEDGE_LIP = 1.0         # ledge protrusion into pocket
+PUMP_LEDGE_H = 1.5           # ledge thickness (Z)
+
+# --- Wire channel network ---
+CHANNEL_W = 3.0              # channel width (open-top groove)
+CHANNEL_D = 3.0              # channel depth into floor
+CHANNEL_NOTCH_W = 3.0        # notch width where channel meets pocket wall
+CHANNEL_NOTCH_H = 3.0        # notch height in pocket wall
+
+# Cross-divider wire ports
+WIRE_PORT_W = 5.0            # port width
+WIRE_PORT_H = 4.0            # port height
+WIRE_PORT_Z = FLOOR_H + 1   # port bottom Z position
+
 # --- Capacitive touch buttons (top shell surface) ---
 TOUCH_BTN_W = 15             # TTP223 module width (verified)
 TOUCH_BTN_D = 11             # TTP223 module depth (verified)
