@@ -235,6 +235,16 @@ TOUCH_BTN_Y = -25            # was -40, moved inward to fit 130x104 footprint
 USBC_PORT_W = 12
 USBC_PORT_H = 7
 
+# --- Access panels (magnetic snap-off) ---
+PANEL_MAGNET_DIA = 4.0        # panel magnet diameter
+PANEL_MAGNET_H = 2.0          # panel magnet height
+PANEL_MAGNET_TOL = 0.2        # tolerance per side for magnet pocket
+PANEL_LIP_DEPTH = 1.5         # lip step depth (into wall from outer surface)
+PANEL_LIP_WIDTH = 1.5         # lip step width (inward from opening edge)
+PANEL_GAP = 0.3               # clearance gap around panel (hairline seam)
+PANEL_MAGNET_INSET = 8.0      # magnet pocket inset from panel corners
+PANEL_THIN = 1.0              # thinned area thickness for light diffusion (logo)
+
 # --- Rubber feet ---
 FOOT_DIA = 12
 FOOT_DEPTH = 1.8
