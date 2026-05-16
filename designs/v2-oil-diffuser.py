@@ -654,6 +654,137 @@ def build_base():
     )
     base = base.cut(pump_wire_drop)
 
+    # === ASSEMBLY CHANNELS — TUBE ROUTING (divider wall side) ===
+
+    # --- Combined divider-face tube trough ---
+    # All 5 outlet tubes converge here before entering their respective pass-through holes.
+    # Cut INTO the center-zone face of the divider wall (does not protrude into center zone).
+    # Open face points +X (toward center zone for press-fit assembly).
+    _divider_cz_face_x = DIVIDER_WET_X + WALL_INNER / 2
+    _trough_cx = _divider_cz_face_x + TUBE_TROUGH_D / 2  # center of cut in X
+    _trough_height = TUBE_TROUGH_Z_TOP - TUBE_TROUGH_Z_BOT
+    tube_trough = (
+        cq.Workplane("XY")
+        .box(TUBE_TROUGH_D, TUBE_TROUGH_Y_SPAN, _trough_height)
+        .translate((_trough_cx, 0,
+                    (TUBE_TROUGH_Z_TOP + TUBE_TROUGH_Z_BOT) / 2))
+    )
+    base = base.cut(tube_trough)
+
+    # Trough side walls (left and right in Y, to keep tubes contained)
+    for _tw_side in [-1, 1]:
+        _tw_y = _tw_side * (TUBE_TROUGH_Y_SPAN / 2 + TUBE_TROUGH_WALL / 2)
+        trough_wall = (
+            cq.Workplane("XY")
+            .box(TUBE_TROUGH_D + TUBE_TROUGH_WALL * 2, TUBE_TROUGH_WALL, _trough_height)
+            .translate((_trough_cx, _tw_y,
+                        (TUBE_TROUGH_Z_TOP + TUBE_TROUGH_Z_BOT) / 2))
+        )
+        base = base.union(trough_wall)
+
+    # --- Horizontal tube bridge (right-column pumps → divider) ---
+    # Runs at Z=29 (1mm above pump tops) from right-column pump edge to divider.
+    # Shallow open groove — tray bottom above (Z=32) acts as the "lid".
+    # 3 right-column pump outlet tubes drop into this bridge and run to divider trough.
+    _bridge_x_start = _pump_right_col_cx + PUMP_BODY_W / 2 + 2  # just past right pump edge
+    _bridge_x_end = _divider_cz_face_x + TUBE_TROUGH_D  # meets the trough
+    _bridge_length = abs(_bridge_x_start - _bridge_x_end)
+    _bridge_cx = (_bridge_x_start + _bridge_x_end) / 2
+    _bridge_w_internal = 10.0  # holds 3× 3mm tubes
+
+    tube_bridge = (
+        cq.Workplane("XY")
+        .box(_bridge_length, _bridge_w_internal, TUBE_BRIDGE_DEPTH)
+        .translate((_bridge_cx, 0, TUBE_BRIDGE_Z + TUBE_BRIDGE_DEPTH / 2))
+    )
+    base = base.cut(tube_bridge)
+
+    # Bridge side walls (low, since tray is the lid)
+    for _bw_side in [-1, 1]:
+        _bw_y = _bw_side * (_bridge_w_internal / 2 + TUBE_BRIDGE_WALL / 2)
+        bridge_wall = (
+            cq.Workplane("XY")
+            .box(_bridge_length, TUBE_BRIDGE_WALL, TUBE_BRIDGE_WALL + TUBE_BRIDGE_DEPTH)
+            .translate((_bridge_cx, _bw_y,
+                        TUBE_BRIDGE_Z + (TUBE_BRIDGE_WALL + TUBE_BRIDGE_DEPTH) / 2))
+        )
+        base = base.union(bridge_wall)
+
+    # === ASSEMBLY CHANNELS — WIRE ROUTING (outer wall side) ===
+
+    # --- Main wire bus (inner face of outer wall, floor level) ---
+    # Carries: 5× pump power pairs + LED strip feed + USB-C power
+    # Sits on the floor, open-top U-channel, open face points -X (toward interior).
+    _outer_wall_inner_x = MEETING_W / 2 - WALL
+    _wire_bus_y_span = 70.0  # Y=-35 to Y=+35, covers all pump positions
+    _wire_bus_cx = _outer_wall_inner_x - WIRE_BUS_D / 2  # recessed into wall face
+
+    wire_bus = (
+        cq.Workplane("XY")
+        .box(WIRE_BUS_D, _wire_bus_y_span, WIRE_BUS_W)
+        .translate((_wire_bus_cx, 0, FLOOR_H + WIRE_BUS_W / 2))
+    )
+    base = base.cut(wire_bus)
+
+    # --- Pump power spur channels (floor level, from bus to each pump) ---
+    # Right-column pumps: 1-2mm stubs (pumps are near outer wall)
+    # Left-column pumps: ~55mm runs along floor, recessed below FLOOR_H
+    # Spurs run at Y positions between pump rows to avoid pump pocket conflicts.
+
+    for pi, (px, py) in enumerate(pump_grid_positions):
+        _spur_x_end = px - PUMP_BODY_W / 2  # pump pocket left edge
+        _spur_x_start = _wire_bus_cx - WIRE_BUS_D / 2  # bus left edge
+        _spur_length = abs(_spur_x_end - _spur_x_start)
+
+        if _spur_length < 2:
+            # Right-column pump stub — barely any length needed
+            continue
+
+        # Floor-level spur: cut into floor (Z=0 to FLOOR_H) so it passes UNDER pump pockets
+        _spur_z = FLOOR_H / 2  # centered in floor thickness
+        pump_spur = (
+            cq.Workplane("XY")
+            .box(_spur_length, WIRE_SPUR_W, WIRE_SPUR_D)
+            .translate(((_spur_x_start + _spur_x_end) / 2, py, _spur_z))
+        )
+        base = base.cut(pump_spur)
+
+    # --- Vertical wire riser (outer wall face, Z=FLOOR_H to TRAY_Z) ---
+    # Wires rise from floor bus up to tray level.
+    # Position: Y=0 (centered between pump rows), on outer wall inner face.
+    _riser_height = TRAY_Z - FLOOR_H
+    _riser_z_center = (FLOOR_H + TRAY_Z) / 2
+
+    wire_riser = (
+        cq.Workplane("XY")
+        .box(WIRE_RISER_D, WIRE_RISER_W, _riser_height)
+        .translate((_wire_bus_cx, 0, _riser_z_center))
+    )
+    base = base.cut(wire_riser)
+
+    # --- Tray ledge gap for wire riser pass-through ---
+    # The tray ledge on the right outer wall runs at Z=29-32.
+    # Cut a gap at Y=0 to let wires pass from riser into tray area.
+    _ledge_gap_w = WIRE_RISER_W + 4  # slightly wider than riser for clearance
+    ledge_gap = (
+        cq.Workplane("XY")
+        .box(_tray_ledge_w + 2, _ledge_gap_w, _tray_ledge_h + 1)
+        .translate((MEETING_W / 2 - WALL - _tray_ledge_w / 2, 0,
+                    TRAY_Z - _tray_ledge_h / 2))
+    )
+    base = base.cut(ledge_gap)
+
+    # --- LED wire branch (from riser at Z≈60 to LED channel) ---
+    # Short horizontal spur at LED strip height connecting riser to LED channel.
+    _led_branch_z = BASE_H - WALL - LED_CHANNEL_D - 2 + LED_CHANNEL_W / 2
+    _led_branch_length = 8  # short run to reach LED channel
+    led_branch = (
+        cq.Workplane("XY")
+        .box(_led_branch_length, WIRE_SPUR_W, WIRE_SPUR_D)
+        .translate((_wire_bus_cx - _led_branch_length / 2, 0, _led_branch_z))
+    )
+    base = base.cut(led_branch)
+
     # --- Rubber feet ---
     foot_coords = [
         (-BASE_W / 2 + FOOT_INSET, -BASE_D / 2 + FOOT_INSET),
