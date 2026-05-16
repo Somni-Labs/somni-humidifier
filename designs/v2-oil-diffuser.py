@@ -2587,6 +2587,25 @@ mist_btn_marker = (
 show_object(mist_btn_marker, name="btn_mist",
             options={"color": (0.08, 0.82, 0.82, 0.95)})  # cyan/teal
 
+# --- Access panels (installed positions) ---
+_taper_shrink_base = BASE_H * math.tan(math.radians(6))
+_hex_panel_h = BASE_H * 0.45
+_hex_panel_z = BASE_H - _hex_panel_h - WALL - 2
+_front_wall_y = -(BASE_D / 2 - _taper_shrink_base * 0.5)
+_right_wall_x = BASE_W / 2 - _taper_shrink_base * 0.5
+
+front_panel = build_front_panel()
+# Translate: panel outer face (Y=0) goes to front wall Y, centered X, panel Z center
+front_panel_placed = front_panel.translate((0, _front_wall_y, _hex_panel_z + _hex_panel_h / 2))
+show_object(front_panel_placed, name="front_panel",
+            options={"color": (0.15, 0.15, 0.18, 0.85)})
+
+right_panel = build_right_panel()
+# Translate: panel outer face (X=0) goes to right wall X, centered Y, panel Z center
+right_panel_placed = right_panel.translate((_right_wall_x, 0, _hex_panel_z + _hex_panel_h / 2))
+show_object(right_panel_placed, name="right_panel",
+            options={"color": (0.15, 0.15, 0.18, 0.85)})
+
 # --- Collar insert (standalone printable part, shown at origin for export) ---
 collar_standalone = build_collar()
 show_object(collar_standalone, name="collar_insert_printable",
