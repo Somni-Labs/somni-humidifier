@@ -536,6 +536,57 @@ def build_base():
     )
     base = base.union(seal_ring)
 
+    # --- Mixing well (isolated chamber around atomizer) ---
+    # 3-sided box: left, front, rear walls. Right side = divider wall (shared).
+    _well_inner_left = MIXING_WELL_CX - MIXING_WELL_INNER_W / 2   # -53.1
+    _well_inner_right = DIVIDER_WET_X - WALL_INNER / 2             # -23.05 (divider face)
+    _well_inner_front = MIXING_WELL_CY - MIXING_WELL_INNER_D / 2  # -18.0
+    _well_inner_rear = MIXING_WELL_CY + MIXING_WELL_INNER_D / 2   # +12.0
+
+    # Left wall
+    well_left_wall = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center(_well_inner_left - MIXING_WELL_WALL / 2,
+                MIXING_WELL_CY)
+        .rect(MIXING_WELL_WALL, MIXING_WELL_INNER_D + MIXING_WELL_WALL * 2)
+        .extrude(MIXING_WELL_H)
+    )
+    base = base.union(well_left_wall)
+
+    # Front wall
+    well_front_wall = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center((_well_inner_left + _well_inner_right) / 2,
+                _well_inner_front - MIXING_WELL_WALL / 2)
+        .rect(_well_inner_right - _well_inner_left, MIXING_WELL_WALL)
+        .extrude(MIXING_WELL_H)
+    )
+    base = base.union(well_front_wall)
+
+    # Rear wall
+    well_rear_wall = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H)
+        .center((_well_inner_left + _well_inner_right) / 2,
+                _well_inner_rear + MIXING_WELL_WALL / 2)
+        .rect(_well_inner_right - _well_inner_left, MIXING_WELL_WALL)
+        .extrude(MIXING_WELL_H)
+    )
+    base = base.union(well_rear_wall)
+
+    # Overflow notch (cut from top of rear wall, allows excess to drain to reservoir)
+    overflow_notch = (
+        cq.Workplane("XY")
+        .workplane(offset=FLOOR_H + MIXING_WELL_H - 3)
+        .center((_well_inner_left + _well_inner_right) / 2,
+                _well_inner_rear + MIXING_WELL_WALL / 2)
+        .rect(MIXING_WELL_OVERFLOW_W, MIXING_WELL_WALL + 1)
+        .extrude(4)
+    )
+    base = base.cut(overflow_notch)
+
     # Water level sensor mounting pad (on outside of left divider wall)
     sensor_pad = (
         cq.Workplane("XY")
