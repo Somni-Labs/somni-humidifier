@@ -2606,10 +2606,10 @@ right_panel_placed = right_panel.translate((_right_wall_x, 0, _hex_panel_z + _he
 show_object(right_panel_placed, name="right_panel",
             options={"color": (0.0, 0.8, 0.7, 0.9)})
 
-# --- Collar insert (standalone printable part, shown at origin for export) ---
-collar_standalone = build_collar()
-show_object(collar_standalone, name="collar_insert_printable",
-            options={"color": (0.7, 0.7, 0.72, 0.9)})
+# --- Collar insert (standalone printable part — uncomment to export for slicing) ---
+# collar_standalone = build_collar()
+# show_object(collar_standalone, name="collar_insert_printable",
+#             options={"color": (0.7, 0.7, 0.72, 0.9)})
 
 # --- Internal components (fitment check) ---
 components = build_components()
