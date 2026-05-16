@@ -243,6 +243,15 @@ TOUCH_WIRE_CLIP_SPACING = 15.0  # spacing between clips
 USBC_PORT_W = 12
 USBC_PORT_H = 7
 
+# --- USB-C cable channel ---
+USBC_CH_W = 8.0          # channel width (USB-C cable ~4mm OD + clearance)
+USBC_CH_D = 5.0          # channel depth
+USBC_HOOK_DIA = 4.0      # strain relief post diameter
+USBC_HOOK_H = 8.0        # strain relief post height
+USBC_HOOK_INSET = 5.0    # post distance from rear wall (inward)
+USBC_CH_CLIP_OVERHANG = 1.0  # clip lip overhang
+USBC_CH_CLIP_THICK = 1.0    # clip lip thickness
+
 # --- Access panels (magnetic snap-off) ---
 PANEL_MAGNET_DIA = 4.0        # panel magnet diameter
 PANEL_MAGNET_H = 2.0          # panel magnet height
