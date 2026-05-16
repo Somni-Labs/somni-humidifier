@@ -1255,6 +1255,121 @@ def build_electronics_tray():
 
 
 # =============================================================================
+# BUILD COLLAR INSERT (threaded bottle holder, one per well)
+# =============================================================================
+
+def build_collar():
+    """Single threaded collar insert for 18-410 bottle neck.
+
+    Anatomy (top to bottom):
+      1. Knurled flange (sits flush with ceiling surface)
+      2. Threaded body (screws into ceiling well)
+      3. Internal bore (bottle cap slides in)
+      4. O-ring groove (friction grip on bottle neck)
+      5. Retention lip (prevents fall-through)
+      6. Tube exit hole (center, for inlet tube)
+
+    Generated centered at origin, Z=0 at flange top. Body extends downward (-Z).
+    Caller translates to installed position.
+    """
+
+    # --- Flange (top, Z=0 to Z=-COLLAR_FLANGE_H) ---
+    collar = (
+        cq.Workplane("XY")
+        .circle(COLLAR_FLANGE_OD / 2)
+        .extrude(-COLLAR_FLANGE_H)
+    )
+
+    # Knurl pattern on flange (simplified: small vertical grooves around perimeter)
+    _knurl_count = 24
+    for ki in range(_knurl_count):
+        _angle = 2 * math.pi * ki / _knurl_count
+        _kx = (COLLAR_FLANGE_OD / 2 - 0.3) * math.cos(_angle)
+        _ky = (COLLAR_FLANGE_OD / 2 - 0.3) * math.sin(_angle)
+        knurl_groove = (
+            cq.Workplane("XY")
+            .box(0.6, 0.6, COLLAR_FLANGE_H + 0.1)
+            .translate((_kx, _ky, -COLLAR_FLANGE_H / 2))
+        )
+        collar = collar.cut(knurl_groove)
+
+    # --- Threaded body (Z=-COLLAR_FLANGE_H to Z=-(COLLAR_FLANGE_H + COLLAR_THREAD_H)) ---
+    thread_body = (
+        cq.Workplane("XY")
+        .workplane(offset=-COLLAR_FLANGE_H)
+        .circle(COLLAR_THREAD_OD / 2)
+        .extrude(-COLLAR_THREAD_H)
+    )
+    collar = collar.union(thread_body)
+
+    # Thread grooves (simplified: helical annular cuts representing 3 turns)
+    _thread_z_start = -COLLAR_FLANGE_H
+    for ti in range(3):
+        _tz = _thread_z_start - COLLAR_THREAD_PITCH * (ti + 0.5)
+        thread_groove = (
+            cq.Workplane("XY")
+            .workplane(offset=_tz)
+            .circle(COLLAR_THREAD_OD / 2 + 0.1)
+            .circle(COLLAR_THREAD_OD / 2 - 1.0)
+            .extrude(-COLLAR_THREAD_PITCH * 0.4)
+        )
+        collar = collar.cut(thread_groove)
+
+    # --- Retention lip + base (Z=-(COLLAR_FLANGE_H + COLLAR_THREAD_H) to bottom) ---
+    _lip_z_top = -(COLLAR_FLANGE_H + COLLAR_THREAD_H)
+    lip_disk = (
+        cq.Workplane("XY")
+        .workplane(offset=_lip_z_top)
+        .circle(COLLAR_THREAD_OD / 2)
+        .extrude(-COLLAR_LIP_H)
+    )
+    collar = collar.union(lip_disk)
+
+    # --- Internal bore (full depth, from flange top to lip bottom) ---
+    bore = (
+        cq.Workplane("XY")
+        .workplane(offset=0.1)
+        .circle(COLLAR_BORE_ID / 2)
+        .extrude(-(COLLAR_TOTAL_H + 0.2))
+    )
+    collar = collar.cut(bore)
+
+    # --- Retention lip (reduce bore opening at bottom) ---
+    # The lip is already solid from lip_disk; the bore cut above goes through it.
+    # Now fill the lip ring back in (donut shape at bottom).
+    lip_ring = (
+        cq.Workplane("XY")
+        .workplane(offset=_lip_z_top)
+        .circle(COLLAR_BORE_ID / 2)
+        .circle(COLLAR_LIP_OPENING / 2)
+        .extrude(-COLLAR_LIP_H)
+    )
+    collar = collar.union(lip_ring)
+
+    # --- O-ring groove (internal annular groove) ---
+    _oring_z = -COLLAR_ORING_Z
+    oring_groove = (
+        cq.Workplane("XY")
+        .workplane(offset=_oring_z)
+        .circle(COLLAR_BORE_ID / 2 + COLLAR_ORING_DEPTH)
+        .circle(COLLAR_BORE_ID / 2)
+        .extrude(-COLLAR_ORING_W)
+    )
+    collar = collar.cut(oring_groove)
+
+    # --- Tube exit hole (center of bottom face) ---
+    tube_hole = (
+        cq.Workplane("XY")
+        .workplane(offset=_lip_z_top + 0.1)
+        .circle(COLLAR_TUBE_HOLE / 2)
+        .extrude(-(COLLAR_LIP_H + 0.2))
+    )
+    collar = collar.cut(tube_hole)
+
+    return collar
+
+
+# =============================================================================
 # BUILD TOP SHELL
 # =============================================================================
 
