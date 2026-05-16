@@ -1417,9 +1417,9 @@ def build_front_panel():
     # LED strip behind illuminates "SOMNI LABS" through 1mm PETG.
     _thin_depth = _panel_t - PANEL_THIN  # 2mm pocket depth
 
-    # One combined thinning pocket centered on panel (covers both words)
-    _logo_pocket_w = 60.0   # wide enough for "SOMNI" + "LABS"
-    _logo_pocket_h = 20.0   # tall enough for both lines
+    # One thinning pocket — horizontal strip behind "SOMNI LABS" single line
+    _logo_pocket_w = 70.0   # wide enough for full text inline
+    _logo_pocket_h = 12.0   # single line height
     logo_pocket = (
         cq.Workplane("XY")
         .box(_logo_pocket_w, _thin_depth, _logo_pocket_h)
@@ -1427,28 +1427,21 @@ def build_front_panel():
     )
     panel = panel.cut(logo_pocket)
 
-    # --- "SOMNI LABS" text engraving (outer face) ---
-    # Engraved into the outer surface so text is visible and backlit
+    # --- "SOMNI LABS" single-line text engraving (outer face) ---
+    # Engraved into the outer surface, backlit by LED strip behind
     try:
-        brand_main = (
+        brand_text = (
             cq.Workplane("XZ")
             .workplane(offset=0)
-            .center(0, 4)
-            .text("SOMNI", BRAND_FONT_SIZE, -BRAND_DEPTH, font="sans-serif")
+            .center(0, 0)
+            .text("SOMNI LABS", BRAND_FONT_SIZE, -BRAND_DEPTH, font="sans-serif")
         )
-        panel = panel.cut(brand_main)
-        brand_sub = (
-            cq.Workplane("XZ")
-            .workplane(offset=0)
-            .center(0, -6)
-            .text("LABS", BRAND_SUB_SIZE, -BRAND_DEPTH, font="sans-serif")
-        )
-        panel = panel.cut(brand_sub)
+        panel = panel.cut(brand_text)
     except Exception:
         # Fallback: simple recess if text rendering unavailable
         brand_recess = (
             cq.Workplane("XY")
-            .box(50, BRAND_DEPTH + 0.1, 18)
+            .box(70, BRAND_DEPTH + 0.1, 12)
             .translate((0, BRAND_DEPTH / 2, 0))
         )
         panel = panel.cut(brand_recess)
