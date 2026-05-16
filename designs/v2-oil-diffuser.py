@@ -231,6 +231,14 @@ TOUCH_BTN_COUNT = 2
 TOUCH_BTN_SPACING = 35
 TOUCH_BTN_Y = -25            # was -40, moved inward to fit 130x104 footprint
 
+# --- Touch button wire channels ---
+TOUCH_WIRE_CH_W = 4.0        # channel width (fits 3x 26AWG wires)
+TOUCH_WIRE_CH_D = 2.5        # channel depth (ceiling run, leaves 0.5mm shell)
+TOUCH_WIRE_DROP_D = 3.0      # channel depth (vertical drop, interior walls thicker)
+TOUCH_WIRE_CLIP_OVERHANG = 1.0  # clip lip overhang into channel
+TOUCH_WIRE_CLIP_THICK = 1.0  # clip lip thickness along channel direction
+TOUCH_WIRE_CLIP_SPACING = 15.0  # spacing between clips
+
 # --- USB-C port ---
 USBC_PORT_W = 12
 USBC_PORT_H = 7
