@@ -86,6 +86,15 @@ DIVIDER_WET_X = -21.8    # left divider (wet/center boundary)
 # --- Water reservoir (wet zone) ---
 RESERVOIR_DEPTH = BASE_H - FLOOR_H - WALL
 
+# --- Mixing well (isolated atomizer chamber) ---
+MIXING_WELL_INNER_W = 30.0    # X dimension (inner)
+MIXING_WELL_INNER_D = 30.0    # Y dimension (inner)
+MIXING_WELL_WALL = 2.5        # wall thickness (left, front, rear only)
+MIXING_WELL_H = 15.0          # wall height from floor
+MIXING_WELL_CX = -38.1        # center X (same as atomizer)
+MIXING_WELL_CY = -3.0         # center Y (shifted slightly front for fill chute clearance)
+MIXING_WELL_OVERFLOW_W = 3.0  # overflow notch width at top of rear wall
+
 # --- Ultrasonic atomizer ---
 ATOMIZER_DIA = 20
 ATOMIZER_DRIVER_W = 35
@@ -99,8 +108,8 @@ PUMP_BODY_W = 35             # WX3 length oriented along X
 PUMP_BODY_D = 23             # WX3 width oriented along Y
 PUMP_BODY_H = 25             # WX3 height
 PUMP_LEFT_COL_COUNT = 2      # near divider
-PUMP_RIGHT_COL_COUNT = 3     # near outer wall
-PUMP_TOTAL = PUMP_LEFT_COL_COUNT + PUMP_RIGHT_COL_COUNT
+PUMP_RIGHT_COL_COUNT = 4     # near outer wall (3 oil + 1 water)
+PUMP_TOTAL = PUMP_LEFT_COL_COUNT + PUMP_RIGHT_COL_COUNT  # 6
 PUMP_COL_GAP = 3             # gap between columns (X)
 PUMP_ROW_GAP = 3             # gap between pumps in same column (Y)
 
