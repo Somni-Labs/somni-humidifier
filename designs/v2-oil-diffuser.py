@@ -175,6 +175,32 @@ WIRE_PORT_W = 5.0
 WIRE_PORT_H = 4.0
 WIRE_PORT_Z_ABOVE_WATER = FLOOR_H + 45  # above max water level (43mm) + margin
 
+# --- Assembly channels (V3.3) ---
+# Tube troughs (divider wall side)
+TUBE_TROUGH_W = 10.0         # combined divider-face trough internal width (5 tubes)
+TUBE_TROUGH_D = 4.0          # depth (cut INTO divider wall face)
+TUBE_TROUGH_WALL = 1.5       # trough wall thickness
+TUBE_TROUGH_Z_TOP = 29.0     # top of trough (1mm above pump tops)
+TUBE_TROUGH_Z_BOT = 20.0     # bottom of trough (below lowest holes)
+TUBE_TROUGH_Y_SPAN = 60.0    # Y=-30 to Y=+30
+TUBE_BRIDGE_Z = 29.0         # horizontal bridge height (above pump tops)
+TUBE_BRIDGE_DEPTH = 2.0      # shallow groove depth (tray acts as lid)
+TUBE_BRIDGE_WALL = 1.0       # low walls for bridge
+
+# Wire bus (outer wall side)
+WIRE_BUS_W = 6.0             # main bus channel internal width
+WIRE_BUS_D = 4.0             # main bus channel depth
+WIRE_BUS_WALL = 1.5          # bus wall thickness
+WIRE_SPUR_W = 4.0            # pump power spur width
+WIRE_SPUR_D = 3.0            # pump power spur depth
+WIRE_RISER_W = 6.0           # vertical riser width
+WIRE_RISER_D = 4.0           # vertical riser depth
+
+# Clip guides (top shell)
+CLIP_GUIDE_ID = 5.0          # internal diameter
+CLIP_GUIDE_WALL = 1.5        # clip wall thickness
+CLIP_GUIDE_COUNT = 3         # number of clip guides on inlet run
+
 # --- Tubing channels (base floor) ---
 TUBE_CHANNEL_W = 4           # collector channel width
 TUBE_CHANNEL_D = 3           # collector channel depth
