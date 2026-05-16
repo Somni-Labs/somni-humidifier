@@ -892,6 +892,104 @@ def build_base():
         .translate((0, (BASE_D / 2 - _taper_shrink_base * 0.5), hex_panel_z + hex_panel_h / 2)))
     base = base.cut(hex_rear_pos)
 
+    # === ACCESS PANELS — openings with flush-mount lips + magnet pockets ===
+
+    # Panel opening dimensions (same area as removed hex mesh)
+    _front_panel_w = BASE_W * 0.6   # 78mm
+    _front_panel_h = hex_panel_h     # 31.5mm
+    _front_panel_z = hex_panel_z     # 33.5mm (bottom edge Z)
+    _front_wall_y = -(BASE_D / 2 - _taper_shrink_base * 0.5)  # front wall Y
+
+    _right_panel_w = BASE_D * 0.4   # 41.6mm
+    _right_panel_h = hex_panel_h     # 31.5mm
+    _right_panel_z = hex_panel_z     # 33.5mm (bottom edge Z)
+    _right_wall_x = BASE_W / 2 - _taper_shrink_base * 0.5  # right wall X
+
+    # --- Front panel opening (full wall cutout) ---
+    front_opening = (
+        cq.Workplane("XY")
+        .box(_front_panel_w, WALL + 1, _front_panel_h)
+        .translate((0, _front_wall_y, _front_panel_z + _front_panel_h / 2))
+    )
+    base = base.cut(front_opening)
+
+    # Front panel lip recess (1.5mm step around opening perimeter)
+    front_lip = (
+        cq.Workplane("XY")
+        .box(_front_panel_w + PANEL_LIP_WIDTH * 2, PANEL_LIP_DEPTH, _front_panel_h + PANEL_LIP_WIDTH * 2)
+        .translate((0, _front_wall_y + WALL / 2 - PANEL_LIP_DEPTH / 2,
+                    _front_panel_z + _front_panel_h / 2))
+    )
+    # Cut only the lip area (subtract the opening from it first)
+    front_lip_inner = (
+        cq.Workplane("XY")
+        .box(_front_panel_w, PANEL_LIP_DEPTH + 1, _front_panel_h)
+        .translate((0, _front_wall_y + WALL / 2 - PANEL_LIP_DEPTH / 2,
+                    _front_panel_z + _front_panel_h / 2))
+    )
+    front_lip_only = front_lip.cut(front_lip_inner)
+    base = base.cut(front_lip_only)
+
+    # Front panel magnet pockets (4 corners, in the lip face)
+    _fp_mag_positions = [
+        (-_front_panel_w / 2 + PANEL_MAGNET_INSET, _front_panel_z + PANEL_MAGNET_INSET),
+        ( _front_panel_w / 2 - PANEL_MAGNET_INSET, _front_panel_z + PANEL_MAGNET_INSET),
+        (-_front_panel_w / 2 + PANEL_MAGNET_INSET, _front_panel_z + _front_panel_h - PANEL_MAGNET_INSET),
+        ( _front_panel_w / 2 - PANEL_MAGNET_INSET, _front_panel_z + _front_panel_h - PANEL_MAGNET_INSET),
+    ]
+    for _fmx, _fmz in _fp_mag_positions:
+        fp_mag = (
+            cq.Workplane("XY")
+            .box(PANEL_MAGNET_DIA + PANEL_MAGNET_TOL * 2,
+                 PANEL_MAGNET_H + PANEL_MAGNET_TOL,
+                 PANEL_MAGNET_DIA + PANEL_MAGNET_TOL * 2)
+            .translate((_fmx, _front_wall_y + WALL / 2 - PANEL_LIP_DEPTH - PANEL_MAGNET_H / 2,
+                        _fmz))
+        )
+        base = base.cut(fp_mag)
+
+    # --- Right panel opening (full wall cutout) ---
+    right_opening = (
+        cq.Workplane("XY")
+        .box(WALL + 1, _right_panel_w, _right_panel_h)
+        .translate((_right_wall_x, 0, _right_panel_z + _right_panel_h / 2))
+    )
+    base = base.cut(right_opening)
+
+    # Right panel lip recess
+    right_lip = (
+        cq.Workplane("XY")
+        .box(PANEL_LIP_DEPTH, _right_panel_w + PANEL_LIP_WIDTH * 2, _right_panel_h + PANEL_LIP_WIDTH * 2)
+        .translate((_right_wall_x - WALL / 2 + PANEL_LIP_DEPTH / 2, 0,
+                    _right_panel_z + _right_panel_h / 2))
+    )
+    right_lip_inner = (
+        cq.Workplane("XY")
+        .box(PANEL_LIP_DEPTH + 1, _right_panel_w, _right_panel_h)
+        .translate((_right_wall_x - WALL / 2 + PANEL_LIP_DEPTH / 2, 0,
+                    _right_panel_z + _right_panel_h / 2))
+    )
+    right_lip_only = right_lip.cut(right_lip_inner)
+    base = base.cut(right_lip_only)
+
+    # Right panel magnet pockets (4 corners, in the lip face)
+    _rp_mag_positions = [
+        (-_right_panel_w / 2 + PANEL_MAGNET_INSET, _right_panel_z + PANEL_MAGNET_INSET),
+        ( _right_panel_w / 2 - PANEL_MAGNET_INSET, _right_panel_z + PANEL_MAGNET_INSET),
+        (-_right_panel_w / 2 + PANEL_MAGNET_INSET, _right_panel_z + _right_panel_h - PANEL_MAGNET_INSET),
+        ( _right_panel_w / 2 - PANEL_MAGNET_INSET, _right_panel_z + _right_panel_h - PANEL_MAGNET_INSET),
+    ]
+    for _rmy, _rmz in _rp_mag_positions:
+        rp_mag = (
+            cq.Workplane("XY")
+            .box(PANEL_MAGNET_H + PANEL_MAGNET_TOL,
+                 PANEL_MAGNET_DIA + PANEL_MAGNET_TOL * 2,
+                 PANEL_MAGNET_DIA + PANEL_MAGNET_TOL * 2)
+            .translate((_right_wall_x - WALL / 2 + PANEL_LIP_DEPTH + PANEL_MAGNET_H / 2,
+                        _rmy, _rmz))
+        )
+        base = base.cut(rp_mag)
+
     # --- Magnet pockets on base rim ---
     for mx, my in magnet_positions:
         mp = (cq.Workplane("XY").workplane(offset=BASE_H - MAGNET_H)
