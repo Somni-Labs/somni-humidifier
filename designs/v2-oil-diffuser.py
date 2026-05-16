@@ -2586,6 +2586,32 @@ mist_btn_marker = (
 show_object(mist_btn_marker, name="btn_mist",
             options={"color": (0.08, 0.82, 0.82, 0.95)})  # cyan/teal
 
+# --- Touch button wire channel visualization (bright yellow for visibility) ---
+_ch_world_ceiling_z = BASE_H + TOP_H - WALL  # 127mm
+_ch_drop_bot_z = BASE_H + 10.0               # 80mm
+_ch_drop_height = _ch_world_ceiling_z - _ch_drop_bot_z  # 47mm
+_ch_run_length = 25.0  # Y=-25 to Y=0
+
+for _vi in range(TOUCH_BTN_COUNT):
+    _vbx = ((_vi - (TOUCH_BTN_COUNT - 1) / 2) * TOUCH_BTN_SPACING)
+    # Ceiling run (horizontal groove)
+    _vis_ceil = (
+        cq.Workplane("XY")
+        .box(TOUCH_WIRE_CH_W, _ch_run_length, TOUCH_WIRE_CH_D)
+        .translate((_vbx, TOUCH_BTN_Y + _ch_run_length / 2,
+                    _ch_world_ceiling_z - TOUCH_WIRE_CH_D / 2))
+    )
+    show_object(_vis_ceil, name=f"wire_channel_ceiling_{_vi}",
+                options={"color": (1.0, 0.9, 0.0, 0.95)})
+    # Vertical drop
+    _vis_drop = (
+        cq.Workplane("XY")
+        .box(TOUCH_WIRE_CH_W, TOUCH_WIRE_DROP_D, _ch_drop_height)
+        .translate((_vbx, 0, _ch_drop_bot_z + _ch_drop_height / 2))
+    )
+    show_object(_vis_drop, name=f"wire_channel_drop_{_vi}",
+                options={"color": (1.0, 0.9, 0.0, 0.95)})
+
 # --- Access panels (installed positions) ---
 _taper_shrink_base = BASE_H * math.tan(math.radians(6))
 _led_center_z = BASE_H - WALL - LED_CHANNEL_D - 2 + LED_CHANNEL_W / 2  # 66mm
