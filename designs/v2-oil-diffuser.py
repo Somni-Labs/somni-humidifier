@@ -1868,6 +1868,38 @@ def build_top_shell():
         )
         shell = shell.cut(drop_channel)
 
+        # --- Retaining clips: ceiling run (2 clips per channel) ---
+        # Clips are small lips protruding into channel from one side.
+        # Positioned at Y = button_y + 8mm and button_y + 23mm (near start and end)
+        _ceil_clip_positions = [
+            by + 8.0,   # first clip, 8mm into run
+            by + 23.0,  # second clip, near end of run
+        ]
+        for clip_y in _ceil_clip_positions:
+            clip = (
+                cq.Workplane("XY")
+                .box(TOUCH_WIRE_CLIP_OVERHANG, TOUCH_WIRE_CLIP_THICK, TOUCH_WIRE_CH_D)
+                .translate((bx - TOUCH_WIRE_CH_W / 2 + TOUCH_WIRE_CLIP_OVERHANG / 2,
+                            clip_y,
+                            _ceiling_z - TOUCH_WIRE_CH_D / 2))
+            )
+            shell = shell.union(clip)
+
+        # --- Retaining clips: vertical drop (3 clips per channel) ---
+        # Evenly spaced along the 47mm drop
+        _drop_clip_count = 3
+        _drop_clip_step = _drop_height / (_drop_clip_count + 1)
+        for ci in range(1, _drop_clip_count + 1):
+            clip_z = _drop_z_bot + ci * _drop_clip_step
+            clip = (
+                cq.Workplane("XY")
+                .box(TOUCH_WIRE_CH_W, TOUCH_WIRE_CLIP_OVERHANG, TOUCH_WIRE_CLIP_THICK)
+                .translate((bx,
+                            _channel_run_y_end + TOUCH_WIRE_DROP_D / 2 - TOUCH_WIRE_CLIP_OVERHANG / 2,
+                            clip_z))
+            )
+            shell = shell.union(clip)
+
     # =============================================
     # SHARED FEATURES
     # =============================================
