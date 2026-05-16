@@ -106,15 +106,30 @@ PUMP_ROW_GAP = 3             # gap between pumps in same column (Y)
 
 # --- Bottle wells (top shell, 3+2 grid) ---
 # Bottles hang cap-down from the top shell ceiling in the right zone.
-# Wells are recessed 3mm into the ceiling with retaining rings.
+# Wells accept threaded collar inserts (M22x2.5). Bottles drop into collar bore.
 BOTTLE_DIA = 22
 BOTTLE_CAP_DIA = 18
 BOTTLE_HEIGHT = 55
 BOTTLE_LEFT_ROW_COUNT = 3    # near divider (row 1)
 BOTTLE_RIGHT_ROW_COUNT = 2   # near outer wall (row 2)
 BOTTLE_TOTAL = BOTTLE_LEFT_ROW_COUNT + BOTTLE_RIGHT_ROW_COUNT
-BOTTLE_WELL_DEPTH = 3        # recess into ceiling
+BOTTLE_WELL_DEPTH = 12       # deepened for collar insert (was 3mm)
 BOTTLE_WELL_DIA = 22 + 2 * 0.4 + 2  # 24.8mm
+
+# --- Bottle collar insert (threaded, 18-410 neck) ---
+COLLAR_FLANGE_OD = 24.0      # flange outer diameter (fits in well)
+COLLAR_FLANGE_H = 2.0        # flange height (flush with ceiling)
+COLLAR_THREAD_OD = 22.0      # threaded body outer diameter (M22x2.5)
+COLLAR_THREAD_H = 8.0        # threaded body height (~3 turns)
+COLLAR_THREAD_PITCH = 2.5    # coarse thread for FDM
+COLLAR_BORE_ID = 18.5        # internal bore (18mm cap + 0.5mm clearance)
+COLLAR_LIP_OPENING = 15.0    # retention lip reduces bore to this
+COLLAR_LIP_H = 1.5           # lip thickness
+COLLAR_ORING_Z = 4.0         # O-ring groove position (from flange top)
+COLLAR_ORING_W = 2.0         # O-ring groove width
+COLLAR_ORING_DEPTH = 1.2     # O-ring groove depth into wall
+COLLAR_TUBE_HOLE = 4.0       # tube exit hole diameter (center of bottom)
+COLLAR_TOTAL_H = COLLAR_FLANGE_H + COLLAR_THREAD_H + COLLAR_LIP_H  # 11.5mm
 BOTTLE_ROW_GAP = 2           # gap between rows (X)
 BOTTLE_Y_SPACING = BOTTLE_WELL_DIA + 2.5  # center-to-center in Y within a row
 
