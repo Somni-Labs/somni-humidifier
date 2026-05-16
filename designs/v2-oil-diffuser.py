@@ -86,14 +86,11 @@ DIVIDER_WET_X = -21.8    # left divider (wet/center boundary)
 # --- Water reservoir (wet zone) ---
 RESERVOIR_DEPTH = BASE_H - FLOOR_H - WALL
 
-# --- Mixing well (isolated atomizer chamber) ---
-MIXING_WELL_INNER_W = 30.0    # X dimension (inner)
-MIXING_WELL_INNER_D = 30.0    # Y dimension (inner)
-MIXING_WELL_WALL = 2.5        # wall thickness (left, front, rear only)
-MIXING_WELL_H = 15.0          # wall height from floor
-MIXING_WELL_CX = -38.1        # center X (same as atomizer)
-MIXING_WELL_CY = -3.0         # center Y (shifted slightly front for fill chute clearance)
-MIXING_WELL_OVERFLOW_W = 3.0  # overflow notch width at top of rear wall
+# --- Wet zone partition (divides reservoir from mixing well) ---
+PARTITION_Y = 10.0            # Y position of partition wall center
+PARTITION_WALL = 2.5          # wall thickness
+PARTITION_H = 15.0            # wall height from floor
+PARTITION_OVERFLOW_W = 3.0    # overflow notch width (centered on X)
 
 # --- Ultrasonic atomizer ---
 ATOMIZER_DIA = 20
@@ -101,7 +98,7 @@ ATOMIZER_DRIVER_W = 35
 ATOMIZER_DRIVER_D = 25
 ATOMIZER_MOUNT_DIA = 24  # 20mm piezo + 2mm rim each side
 ATOMIZER_POS_X = -38.1       # centered in narrower wet zone
-ATOMIZER_POS_Y = 0           # centered front-to-back
+ATOMIZER_POS_Y = 29.7        # rear mixing chamber (was 0)
 
 # --- Peristaltic pumps (5x JIHPUMP WX3 micro, 2+3 grid in center zone) ---
 PUMP_BODY_W = 35             # WX3 length oriented along X
@@ -297,7 +294,7 @@ FILL_CHUTE_TOP_D = 30
 FILL_CHUTE_BOT_W = 14
 FILL_CHUTE_BOT_D = 20
 FILL_CHUTE_POS_X = ATOMIZER_POS_X
-FILL_CHUTE_POS_Y = 18        # was 30, moved inward to fit 130x104 footprint
+FILL_CHUTE_POS_Y = -15.0     # front reservoir chamber (was 18)
 FILL_CHUTE_LIP_H = 3
 
 # --- Top shell zone divider ---
