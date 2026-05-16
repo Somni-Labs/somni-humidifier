@@ -1515,39 +1515,34 @@ def build_top_shell():
     # BOTTLES+STORAGE ZONE (right) — bottle wells + open storage
     # =============================================
 
-    # 3+2 bottle grid recessed 3mm into ceiling with retaining rings
+    # 3+2 bottle grid — deep threaded wells for collar inserts
     _ceiling_z = TOP_H - WALL  # inner ceiling surface
-    _retainer_ring_h = 15      # ring hangs down from ceiling
-    _retainer_ring_wall = 2    # ring wall thickness
 
     for bx, by in bottle_grid_positions:
-        # Well recess into ceiling (3mm deep)
-        well_recess = (
+        # Deep well bore (12mm, accepts full collar threaded body + flange recess)
+        well_bore = (
             cq.Workplane("XY")
             .workplane(offset=_ceiling_z - BOTTLE_WELL_DEPTH)
             .center(bx, by)
             .circle(BOTTLE_WELL_DIA / 2)
             .extrude(BOTTLE_WELL_DEPTH + 0.1)
         )
-        shell = shell.cut(well_recess)
+        shell = shell.cut(well_bore)
 
-        # Retaining ring (hangs down from ceiling)
-        ring_outer = (
-            cq.Workplane("XY")
-            .workplane(offset=_ceiling_z - BOTTLE_WELL_DEPTH - _retainer_ring_h)
-            .center(bx, by)
-            .circle(BOTTLE_WELL_DIA / 2 + _retainer_ring_wall)
-            .extrude(_retainer_ring_h)
-        )
-        ring_inner = (
-            cq.Workplane("XY")
-            .workplane(offset=_ceiling_z - BOTTLE_WELL_DEPTH - _retainer_ring_h - 0.1)
-            .center(bx, by)
-            .circle(BOTTLE_WELL_DIA / 2)
-            .extrude(_retainer_ring_h + 0.2)
-        )
-        retainer = ring_outer.cut(ring_inner)
-        shell = shell.union(retainer)
+        # Internal thread grooves in well wall (simplified: 3 annular cuts)
+        # These mate with the collar's external threads
+        _well_thread_z_start = _ceiling_z - COLLAR_FLANGE_H  # threads start below flange recess
+        for ti in range(3):
+            _wtz = _well_thread_z_start - COLLAR_THREAD_PITCH * (ti + 0.5)
+            well_thread = (
+                cq.Workplane("XY")
+                .workplane(offset=_wtz)
+                .center(bx, by)
+                .circle(BOTTLE_WELL_DIA / 2 + 1.0)
+                .circle(BOTTLE_WELL_DIA / 2)
+                .extrude(-COLLAR_THREAD_PITCH * 0.4)
+            )
+            shell = shell.cut(well_thread)
 
     # =============================================
     # INLET TUBE CLIP GUIDES (right zone interior wall)
@@ -1557,7 +1552,7 @@ def build_top_shell():
     # Evenly spaced Z between bottle cap level and meeting line (shell bottom).
 
     _clip_wall_x = (MEETING_W / 2 - WALL) - CLIP_GUIDE_WALL  # inner face of right wall
-    _clip_z_top = TOP_H - WALL - BOTTLE_WELL_DEPTH - 15 - 5  # below bottle caps
+    _clip_z_top = TOP_H - WALL - BOTTLE_WELL_DEPTH - 5  # below collar bottom
     _clip_z_bot = WALL + 5  # just above meeting line (shell bottom)
     _clip_z_spacing = (_clip_z_top - _clip_z_bot) / (CLIP_GUIDE_COUNT - 1)
 
@@ -1852,7 +1847,7 @@ def build_components():
         bottle_body_h = BOTTLE_HEIGHT - 15
         cap_h = 15
         # Bottle hangs cap-down: cap at top (near ceiling), body below
-        cap_top_z = _ceiling_z_top - BOTTLE_WELL_DEPTH
+        cap_top_z = _ceiling_z_top - COLLAR_TOTAL_H  # cap top at collar bottom
         cap_bot_z = cap_top_z - cap_h
         body_bot_z = cap_bot_z - bottle_body_h
 
@@ -1879,6 +1874,20 @@ def build_components():
             (0.65, 0.45, 0.1, 0.8),    # golden
         ]
         parts[f"bottle_{i}"] = (bottle, colors[i % len(colors)])
+
+    # =============================================
+    # COLLAR INSERTS (installed in each ceiling well)
+    # =============================================
+    # Show collars at their installed positions in assembly coordinates.
+    _collar_color = (0.7, 0.7, 0.72, 0.85)  # light silver/gray
+
+    for i, (bx, by) in enumerate(bottle_grid_positions):
+        # Collar is generated with Z=0 at flange top, body extends -Z.
+        # Installed position: flange top flush with ceiling inner surface.
+        _collar_install_z = _ceiling_z_top  # flange top at ceiling
+        collar_part = build_collar()
+        collar_placed = collar_part.translate((bx, by, _collar_install_z))
+        parts[f"collar_{i}"] = (collar_placed, _collar_color)
 
     # =============================================
     # LED strip (simplified as thin colored ring)
@@ -2031,21 +2040,21 @@ def build_components():
     _tube_in_color = (0.3, 0.5, 0.9, 0.7)    # soft blue (inlet)
     _tube_out_color = (0.9, 0.3, 0.3, 0.7)    # soft red (outlet)
 
-    # Inlet tubes: from TOP of bottle cap → up → over → down outside bottle → pump
+    # Inlet tubes: from TOP of bottle cap → up through collar → over → down outside bottle → pump
     #
-    # Bottles hang cap-up (cap nearest ceiling). Tube is threaded through the cap
-    # center. Outside the cap, the tube exits UPWARD from the cap top, bends over
-    # to clear the bottle, then runs down the outside of the bottle body to the pump.
+    # Bottles hang cap-up (cap nearest ceiling). Tube threads through cap center,
+    # exits upward through collar tube hole. Bends TOWARD DIVIDER WALL (-X) to
+    # keep outer wall side clear for bottle access/removal.
     #
     # Path:
-    #   1. Up from cap top center (short vertical stub, ~5mm)
-    #   2. Horizontal jog to clear bottle radius
-    #   3. Down outside the bottle body
+    #   1. Up from cap top center through collar tube hole (short stub, ~5mm)
+    #   2. Horizontal jog toward divider wall (-X) to clear bottle radius
+    #   3. Down outside the bottle body (divider side)
     #   4. Continue dropping below bottle to pump level
     #   5. Horizontal jog to pump position
 
     for i, ((bx, by), (px, py)) in enumerate(zip(bottle_grid_positions, pump_grid_positions)):
-        _cap_top_z = BASE_H + TOP_H - WALL - BOTTLE_WELL_DEPTH  # ~124mm
+        _cap_top_z = BASE_H + TOP_H - WALL - COLLAR_TOTAL_H  # cap top at collar bottom (~118.5mm)
         _cap_bot_z = _cap_top_z - 15  # cap is 15mm tall → ~109mm
         _bottle_bot_z = _cap_bot_z - (BOTTLE_HEIGHT - 15)  # body is 40mm → ~69mm
         _pump_top_z = FLOOR_H + PUMP_BODY_H  # ~28mm
@@ -2054,12 +2063,9 @@ def build_components():
         _stub_h = 5
         _bend_top_z = _cap_top_z + _stub_h  # top of the stub (~129mm)
 
-        # Offset direction: toward the pump X
+        # Offset direction: ALWAYS toward divider wall (-X) for bottle access clearance
         _tube_offset_x = BOTTLE_DIA / 2 + 2  # just outside bottle body
-        if px > bx:
-            _ext_x = bx + _tube_offset_x
-        else:
-            _ext_x = bx - _tube_offset_x
+        _ext_x = bx - _tube_offset_x  # route toward divider (-X), keep outer wall clear
 
         tube_parts = []
 
