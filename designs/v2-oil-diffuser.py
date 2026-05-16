@@ -1671,38 +1671,84 @@ def build_components():
     _tube_in_color = (0.3, 0.5, 0.9, 0.7)    # soft blue (inlet)
     _tube_out_color = (0.9, 0.3, 0.3, 0.7)    # soft red (outlet)
 
-    # Inlet tubes: from each bottle (cap-down in top shell) to its paired pump
-    # Tubes drop vertically from bottle cap through shell interior to pump top
+    # Inlet tubes: bottle → cap (tube threaded through sealed cap) → outside
+    # bottle body → down through shell interior → pump inlet
+    #
+    # Bottle orientation: cap-DOWN means cap faces ceiling (top), body hangs below.
+    # Actually "cap-down" in our model = cap at TOP near ceiling, bottle inverted.
+    # Tube path:
+    #   1. Exits bottom face of cap (Z = cap_bot_z)
+    #   2. Runs down OUTSIDE the bottle body (offset to one side by bottle radius)
+    #   3. Below bottle bottom, routes freely to pump inlet
+    #   4. Horizontal jog at pump level to reach pump position
+
     for i, ((bx, by), (px, py)) in enumerate(zip(bottle_grid_positions, pump_grid_positions)):
-        _cap_z = BASE_H + TOP_H - WALL - BOTTLE_WELL_DEPTH  # ~127mm
+        _cap_top_z = BASE_H + TOP_H - WALL - BOTTLE_WELL_DEPTH  # ~124mm
+        _cap_bot_z = _cap_top_z - 15  # cap is 15mm tall → ~109mm
+        _bottle_bot_z = _cap_bot_z - (BOTTLE_HEIGHT - 15)  # body is 40mm → ~69mm
         _pump_top_z = FLOOR_H + PUMP_BODY_H  # ~28mm
 
-        # Vertical drop from bottle to pump Z level
-        tube_vert = (
-            cq.Workplane("XY")
-            .box(_tube_t, _tube_t, _cap_z - _pump_top_z)
-            .translate((bx, by, (_cap_z + _pump_top_z) / 2))
-        )
-        # Horizontal jog from bottle X/Y to pump X/Y (at pump top level)
-        _jog_len_x = abs(px - bx)
-        _jog_len_y = abs(py - by)
-        tube_jog_parts = tube_vert
-        if _jog_len_x > 1:
-            jog_x = (
+        # Offset the external tube run to the side of the bottle (toward pump X)
+        _tube_offset_x = BOTTLE_DIA / 2 + 2  # just outside bottle body
+        if px > bx:
+            _ext_x = bx + _tube_offset_x
+        else:
+            _ext_x = bx - _tube_offset_x
+
+        tube_parts = []
+
+        # Seg 1: short horizontal from cap center to tube exit point at cap bottom
+        if abs(_ext_x - bx) > 0.5:
+            seg1 = (
                 cq.Workplane("XY")
-                .box(_jog_len_x, _tube_t, _tube_t)
-                .translate(((bx + px) / 2, by, _pump_top_z))
+                .box(abs(_ext_x - bx), _tube_t, _tube_t)
+                .translate(((bx + _ext_x) / 2, by, _cap_bot_z))
             )
-            tube_jog_parts = tube_jog_parts.union(jog_x)
-        if _jog_len_y > 1:
-            jog_y = (
+            tube_parts.append(seg1)
+
+        # Seg 2: vertical run down outside the bottle body (cap_bot → bottle_bot)
+        seg2 = (
+            cq.Workplane("XY")
+            .box(_tube_t, _tube_t, _cap_bot_z - _bottle_bot_z)
+            .translate((_ext_x, by, (_cap_bot_z + _bottle_bot_z) / 2))
+        )
+        tube_parts.append(seg2)
+
+        # Seg 3: vertical drop from bottle bottom to pump level
+        if _bottle_bot_z - _pump_top_z > 1:
+            seg3 = (
                 cq.Workplane("XY")
-                .box(_tube_t, _jog_len_y, _tube_t)
+                .box(_tube_t, _tube_t, _bottle_bot_z - _pump_top_z)
+                .translate((_ext_x, by, (_bottle_bot_z + _pump_top_z) / 2))
+            )
+            tube_parts.append(seg3)
+
+        # Seg 4: horizontal jog at pump level (X direction) from ext_x to pump X
+        _jog_x = abs(px - _ext_x)
+        if _jog_x > 1:
+            seg4x = (
+                cq.Workplane("XY")
+                .box(_jog_x, _tube_t, _tube_t)
+                .translate(((px + _ext_x) / 2, by, _pump_top_z))
+            )
+            tube_parts.append(seg4x)
+
+        # Seg 5: horizontal jog at pump level (Y direction) from bottle Y to pump Y
+        _jog_y = abs(py - by)
+        if _jog_y > 1:
+            seg4y = (
+                cq.Workplane("XY")
+                .box(_tube_t, _jog_y, _tube_t)
                 .translate((px, (by + py) / 2, _pump_top_z))
             )
-            tube_jog_parts = tube_jog_parts.union(jog_y)
+            tube_parts.append(seg4y)
 
-        parts[f"tube_inlet_{i}"] = (tube_jog_parts, _tube_in_color)
+        # Union all segments
+        tube_solid = tube_parts[0]
+        for tp in tube_parts[1:]:
+            tube_solid = tube_solid.union(tp)
+
+        parts[f"tube_inlet_{i}"] = (tube_solid, _tube_in_color)
 
     # Outlet tubes: from each pump to divider pass-through hole
     _divider_hole_z = FLOOR_H + (TRAY_Z - FLOOR_H) - 8  # ~24mm, near top of lower divider
