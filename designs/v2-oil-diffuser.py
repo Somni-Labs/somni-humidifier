@@ -533,53 +533,29 @@ def build_base():
     )
     base = base.union(seal_ring)
 
-    # --- Mixing well (isolated chamber around atomizer) ---
-    # 3-sided box: left, front, rear walls. Right side = divider wall (shared).
-    _well_inner_left = MIXING_WELL_CX - MIXING_WELL_INNER_W / 2   # -53.1
-    _well_inner_right = DIVIDER_WET_X - WALL_INNER / 2             # -23.05 (divider face)
-    _well_inner_front = MIXING_WELL_CY - MIXING_WELL_INNER_D / 2  # -18.0
-    _well_inner_rear = MIXING_WELL_CY + MIXING_WELL_INNER_D / 2   # +12.0
+    # --- Wet zone partition (single wall dividing reservoir from mixing well) ---
+    # Front (Y < PARTITION_Y) = reservoir (larger, has fill chute)
+    # Rear (Y > PARTITION_Y) = mixing well (smaller, has atomizer)
+    _partition_left = -(BASE_W - WALL * 2) / 2   # left inner wall face
+    _partition_right = DIVIDER_WET_X - WALL_INNER / 2  # divider inner face
+    _partition_width = _partition_right - _partition_left
+    _partition_cx = (_partition_left + _partition_right) / 2
 
-    # Left wall
-    well_left_wall = (
+    partition_wall = (
         cq.Workplane("XY")
         .workplane(offset=FLOOR_H)
-        .center(_well_inner_left - MIXING_WELL_WALL / 2,
-                MIXING_WELL_CY)
-        .rect(MIXING_WELL_WALL, MIXING_WELL_INNER_D + MIXING_WELL_WALL * 2)
-        .extrude(MIXING_WELL_H)
+        .center(_partition_cx, PARTITION_Y)
+        .rect(_partition_width, PARTITION_WALL)
+        .extrude(PARTITION_H)
     )
-    base = base.union(well_left_wall)
+    base = base.union(partition_wall)
 
-    # Front wall
-    well_front_wall = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center((_well_inner_left + _well_inner_right) / 2,
-                _well_inner_front - MIXING_WELL_WALL / 2)
-        .rect(_well_inner_right - _well_inner_left, MIXING_WELL_WALL)
-        .extrude(MIXING_WELL_H)
-    )
-    base = base.union(well_front_wall)
-
-    # Rear wall
-    well_rear_wall = (
-        cq.Workplane("XY")
-        .workplane(offset=FLOOR_H)
-        .center((_well_inner_left + _well_inner_right) / 2,
-                _well_inner_rear + MIXING_WELL_WALL / 2)
-        .rect(_well_inner_right - _well_inner_left, MIXING_WELL_WALL)
-        .extrude(MIXING_WELL_H)
-    )
-    base = base.union(well_rear_wall)
-
-    # Overflow notch (cut from top of rear wall, allows excess to drain to reservoir)
+    # Overflow notch (cut from top of partition, allows mixing well excess → reservoir)
     overflow_notch = (
         cq.Workplane("XY")
-        .workplane(offset=FLOOR_H + MIXING_WELL_H - 3)
-        .center((_well_inner_left + _well_inner_right) / 2,
-                _well_inner_rear + MIXING_WELL_WALL / 2)
-        .rect(MIXING_WELL_OVERFLOW_W, MIXING_WELL_WALL + 1)
+        .workplane(offset=FLOOR_H + PARTITION_H - 3)
+        .center(_partition_cx, PARTITION_Y)
+        .rect(PARTITION_OVERFLOW_W, PARTITION_WALL + 1)
         .extrude(4)
     )
     base = base.cut(overflow_notch)
