@@ -2721,6 +2721,42 @@ for _vi in range(TOUCH_BTN_COUNT):
     show_object(_vis_drop, name=f"wire_channel_drop_{_vi}",
                 options={"color": (1.0, 0.9, 0.0, 0.95)})
 
+# --- Mixing well visualization (green for visibility) ---
+_well_inner_left_vis = MIXING_WELL_CX - MIXING_WELL_INNER_W / 2
+_well_inner_right_vis = DIVIDER_WET_X - WALL_INNER / 2
+_well_inner_front_vis = MIXING_WELL_CY - MIXING_WELL_INNER_D / 2
+_well_inner_rear_vis = MIXING_WELL_CY + MIXING_WELL_INNER_D / 2
+# Left wall
+_vis_well_left = (
+    cq.Workplane("XY")
+    .box(MIXING_WELL_WALL, MIXING_WELL_INNER_D + MIXING_WELL_WALL * 2, MIXING_WELL_H)
+    .translate((_well_inner_left_vis - MIXING_WELL_WALL / 2,
+                MIXING_WELL_CY,
+                FLOOR_H + MIXING_WELL_H / 2))
+)
+show_object(_vis_well_left, name="mixing_well_left",
+            options={"color": (0.2, 0.9, 0.3, 0.85)})
+# Front wall
+_vis_well_front = (
+    cq.Workplane("XY")
+    .box(_well_inner_right_vis - _well_inner_left_vis, MIXING_WELL_WALL, MIXING_WELL_H)
+    .translate(((_well_inner_left_vis + _well_inner_right_vis) / 2,
+                _well_inner_front_vis - MIXING_WELL_WALL / 2,
+                FLOOR_H + MIXING_WELL_H / 2))
+)
+show_object(_vis_well_front, name="mixing_well_front",
+            options={"color": (0.2, 0.9, 0.3, 0.85)})
+# Rear wall
+_vis_well_rear = (
+    cq.Workplane("XY")
+    .box(_well_inner_right_vis - _well_inner_left_vis, MIXING_WELL_WALL, MIXING_WELL_H)
+    .translate(((_well_inner_left_vis + _well_inner_right_vis) / 2,
+                _well_inner_rear_vis + MIXING_WELL_WALL / 2,
+                FLOOR_H + MIXING_WELL_H / 2))
+)
+show_object(_vis_well_rear, name="mixing_well_rear",
+            options={"color": (0.2, 0.9, 0.3, 0.85)})
+
 # --- USB-C cable channel visualization (orange for visibility) ---
 _usbc_x_vis = (_pump_left_col_cx + _pump_right_col_cx) / 2
 _t_usbc_vis = (TRAY_Z + TRAY_FLOOR + 3) / BASE_H
