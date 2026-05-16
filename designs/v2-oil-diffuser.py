@@ -2467,8 +2467,8 @@ def build_components():
     #   2. Through the divider hole into wet zone
     #   3. Drop down into the water (to just above floor level)
     _divider_hole_z = FLOOR_H + (TRAY_Z - FLOOR_H) - 8  # ~24mm
-    _water_drip_z = FLOOR_H + MIXING_WELL_H + 2  # drip above well wall (into well)
-    _wet_drip_x = MIXING_WELL_CX  # drip into center of mixing well
+    _water_drip_z = FLOOR_H + PARTITION_H + 2  # drip above partition wall (into mixing well)
+    _wet_drip_x = ATOMIZER_POS_X  # drip into mixing well (rear chamber)
 
     for i, (px, py) in enumerate(pump_grid_positions):
         _pump_out_z = FLOOR_H + PUMP_BODY_H  # pump output at top
