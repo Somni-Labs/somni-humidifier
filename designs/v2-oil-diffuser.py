@@ -1368,6 +1368,193 @@ def build_collar():
 
 
 # =============================================================================
+# BUILD FRONT PANEL (magnetic snap-off, backlit logo)
+# =============================================================================
+
+def build_front_panel():
+    """Front access panel with SOMNI LABS logo thinned for LED backlighting.
+
+    Panel sits flush in front wall (-Y) opening. Held by 4x 4mm magnets.
+    Logo areas thinned to 1mm from inside — LED strip behind illuminates
+    through the plastic. Outer surface is smooth/flush.
+
+    Generated at origin: width along X, height along Z, thickness along Y.
+    Panel outer face at Y=0, inner face at Y=+WALL (3mm thick).
+    """
+    _panel_w = BASE_W * 0.6    # 78mm
+    _panel_h = BASE_H * 0.45   # 31.5mm
+    _panel_t = WALL             # 3mm thick (same as wall)
+
+    # Solid panel body
+    panel = (
+        cq.Workplane("XY")
+        .box(_panel_w - PANEL_GAP * 2, _panel_t, _panel_h - PANEL_GAP * 2)
+        .translate((0, _panel_t / 2, 0))
+    )
+
+    # Rabbet edges (1.5mm step on all 4 edges for flush fit in lip)
+    # The outer 1.5mm thickness sits in the lip recess
+    # Cut away the inner portion around the perimeter to create the rabbet
+    rabbet_outer = (
+        cq.Workplane("XY")
+        .box(_panel_w - PANEL_GAP * 2, PANEL_LIP_DEPTH, _panel_h - PANEL_GAP * 2)
+        .translate((0, PANEL_LIP_DEPTH / 2, 0))
+    )
+    rabbet_inner = (
+        cq.Workplane("XY")
+        .box(_panel_w - PANEL_GAP * 2 - PANEL_LIP_WIDTH * 2,
+             PANEL_LIP_DEPTH + 1,
+             _panel_h - PANEL_GAP * 2 - PANEL_LIP_WIDTH * 2)
+        .translate((0, PANEL_LIP_DEPTH / 2, 0))
+    )
+    rabbet_cut = rabbet_outer.cut(rabbet_inner)
+    panel = panel.cut(rabbet_cut)
+
+    # --- Logo thinning (from inside face) ---
+    # Thin the panel from 3mm to 1mm in logo areas by cutting 2mm pockets on the inside.
+    # Logo is the S-curve icon (left) + SOMNI LABS text (right), centered on panel.
+    _thin_depth = _panel_t - PANEL_THIN  # 2mm pocket depth
+
+    # S-curve icon area (left side of panel)
+    _icon_w = 22.0   # icon spans ~22mm wide
+    _icon_h = 22.0   # icon spans ~22mm tall
+    _icon_cx = -15.0  # icon center X (same as original branding)
+    icon_pocket = (
+        cq.Workplane("XY")
+        .box(_icon_w, _thin_depth, _icon_h)
+        .translate((_icon_cx, _panel_t - _thin_depth / 2, 0))
+    )
+    panel = panel.cut(icon_pocket)
+
+    # "SOMNI" text area (right of icon, upper)
+    _text_w = 45.0
+    _text_h = 14.0
+    _text_cx = 10.0
+    _text_cz = 4.0
+    text_pocket = (
+        cq.Workplane("XY")
+        .box(_text_w, _thin_depth, _text_h)
+        .translate((_text_cx, _panel_t - _thin_depth / 2, _text_cz))
+    )
+    panel = panel.cut(text_pocket)
+
+    # "LABS" text area (right of icon, lower)
+    _sub_w = 30.0
+    _sub_h = 8.0
+    _sub_cx = 10.0
+    _sub_cz = -6.0
+    sub_pocket = (
+        cq.Workplane("XY")
+        .box(_sub_w, _thin_depth, _sub_h)
+        .translate((_sub_cx, _panel_t - _thin_depth / 2, _sub_cz))
+    )
+    panel = panel.cut(sub_pocket)
+
+    # --- S-curve logo engraving (on outer face, decorative) ---
+    # Same S-curve waypoints as original branding, but cut into panel outer face
+    brand_z_offset = 0  # centered vertically on panel
+    logo_cx = -15.0
+    groove_r = 0.6
+    groove_size = groove_r * 2
+
+    s_curves = [
+        [(7.0,10.0),(8.23,9.74),(9.27,9.14),(10.14,7.95),
+         (10.5,6.0),(8.32,4.02),(3.11,2.61),(-3.11,1.39),(-8.32,-0.02),
+         (-10.5,-2.0),(-9.27,-6.9),(-7.36,-10.45),(-7.0,-11.0)],
+        [(5.5,8.0),(6.56,7.78),(7.44,7.24),(8.19,6.21),
+         (8.5,4.5),(6.73,2.76),(2.52,1.53),(-2.52,0.47),(-6.73,-0.76),
+         (-8.5,-2.5),(-7.44,-6.3),(-5.81,-8.66),(-5.5,-9.0)],
+        [(4.0,6.0),(4.88,5.81),(5.62,5.35),(6.24,4.46),
+         (6.5,3.0),(5.15,1.51),(1.92,0.46),(-1.92,-0.46),(-5.15,-1.51),
+         (-6.5,-3.0),(-5.62,-5.7),(-4.26,-6.87),(-4.0,-7.0)],
+        [(2.5,4.0),(3.2,3.84),(3.8,3.46),(4.29,2.72),
+         (4.5,1.5),(3.56,0.26),(1.33,-0.62),(-1.33,-1.38),(-3.56,-2.26),
+         (-4.5,-3.5),(-3.8,-4.89),(-2.71,-5.04),(-2.5,-5.0)],
+    ]
+
+    _logo_cuts = []
+    for curve_pts in s_curves:
+        for cx_pt, cz_pt in curve_pts:
+            _px = logo_cx + cx_pt
+            _pz = brand_z_offset + cz_pt
+            _logo_cuts.append(
+                cq.Workplane("XY")
+                .box(groove_size, BRAND_DEPTH + 0.5, groove_size)
+                .translate((_px, BRAND_DEPTH / 2, _pz))
+            )
+
+    # Center ring
+    center_ring_r = 2.0
+    num_ring_pts = 16
+    for i in range(num_ring_pts):
+        angle = 2 * math.pi * i / num_ring_pts
+        rx = logo_cx + center_ring_r * math.cos(angle)
+        rz = brand_z_offset + center_ring_r * math.sin(angle)
+        _logo_cuts.append(
+            cq.Workplane("XY")
+            .box(groove_size, BRAND_DEPTH + 0.5, groove_size)
+            .translate((rx, BRAND_DEPTH / 2, rz))
+        )
+
+    # Center dot
+    _logo_cuts.append(
+        cq.Workplane("XY")
+        .box(2.0, BRAND_DEPTH + 0.5, 2.0)
+        .translate((logo_cx, BRAND_DEPTH / 2, brand_z_offset))
+    )
+
+    # Batch cut all logo engravings
+    if _logo_cuts:
+        from cadquery import Compound
+        _logo_compound = Compound.makeCompound([s.val() for s in _logo_cuts])
+        panel = panel.cut(cq.Workplane("XY").newObject([_logo_compound]))
+
+    # Wordmark engraving on outer face
+    try:
+        brand_main = (
+            cq.Workplane("XZ")
+            .workplane(offset=0)
+            .center(10, 4)
+            .text("SOMNI", BRAND_FONT_SIZE, -BRAND_DEPTH, font="sans-serif")
+        )
+        panel = panel.cut(brand_main)
+        brand_sub = (
+            cq.Workplane("XZ")
+            .workplane(offset=0)
+            .center(10, -6)
+            .text("LABS", BRAND_SUB_SIZE, -BRAND_DEPTH, font="sans-serif")
+        )
+        panel = panel.cut(brand_sub)
+    except Exception:
+        # Fallback: simple recess if text rendering unavailable
+        brand_recess = (
+            cq.Workplane("XY")
+            .box(45, BRAND_DEPTH + 0.1, 16)
+            .translate((10, BRAND_DEPTH / 2, 0))
+        )
+        panel = panel.cut(brand_recess)
+
+    # --- Magnet pockets (inner face, 4 corners) ---
+    _mag_pocket_depth = PANEL_MAGNET_H + PANEL_MAGNET_TOL
+    _mag_pocket_dia = PANEL_MAGNET_DIA + PANEL_MAGNET_TOL * 2
+    _fp_mags = [
+        (-(_panel_w / 2 - PANEL_GAP) + PANEL_MAGNET_INSET, -(_panel_h / 2 - PANEL_GAP) + PANEL_MAGNET_INSET),
+        ( (_panel_w / 2 - PANEL_GAP) - PANEL_MAGNET_INSET, -(_panel_h / 2 - PANEL_GAP) + PANEL_MAGNET_INSET),
+        (-(_panel_w / 2 - PANEL_GAP) + PANEL_MAGNET_INSET,  (_panel_h / 2 - PANEL_GAP) - PANEL_MAGNET_INSET),
+        ( (_panel_w / 2 - PANEL_GAP) - PANEL_MAGNET_INSET,  (_panel_h / 2 - PANEL_GAP) - PANEL_MAGNET_INSET),
+    ]
+    for _mx, _mz in _fp_mags:
+        mag_pocket = (
+            cq.Workplane("XY")
+            .box(_mag_pocket_dia, _mag_pocket_depth, _mag_pocket_dia)
+            .translate((_mx, _panel_t - _mag_pocket_depth / 2, _mz))
+        )
+        panel = panel.cut(mag_pocket)
+
+    return panel
+
+
+# =============================================================================
 # BUILD TOP SHELL
 # =============================================================================
 
