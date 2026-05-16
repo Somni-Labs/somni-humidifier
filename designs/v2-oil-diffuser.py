@@ -894,10 +894,12 @@ def build_base():
 
     # === ACCESS PANELS — openings with flush-mount lips + magnet pockets ===
 
-    # Panel opening dimensions (same area as removed hex mesh)
+    # Panel opening dimensions
+    # Front panel: centered on LED strip (Z=60..72, center=66) for backlighting
+    _led_center_z = BASE_H - WALL - LED_CHANNEL_D - 2 + LED_CHANNEL_W / 2  # 66mm
     _front_panel_w = BASE_W * 0.6   # 78mm
-    _front_panel_h = hex_panel_h     # 31.5mm
-    _front_panel_z = hex_panel_z     # 33.5mm (bottom edge Z)
+    _front_panel_h = 24.0           # shorter panel centered on LED
+    _front_panel_z = _led_center_z - _front_panel_h / 2  # 54mm bottom edge
     _front_wall_y = -(BASE_D / 2 - _taper_shrink_base * 0.5)  # front wall Y
 
     _right_panel_w = BASE_D * 0.4   # 41.6mm
@@ -1382,7 +1384,7 @@ def build_front_panel():
     Panel outer face at Y=0, inner face at Y=+WALL (3mm thick).
     """
     _panel_w = BASE_W * 0.6    # 78mm
-    _panel_h = BASE_H * 0.45   # 31.5mm
+    _panel_h = 24.0             # sized to center on LED strip
     _panel_t = WALL             # 3mm thick (same as wall)
 
     # Solid panel body
@@ -2506,19 +2508,22 @@ show_object(mist_btn_marker, name="btn_mist",
 
 # --- Access panels (installed positions) ---
 _taper_shrink_base = BASE_H * math.tan(math.radians(6))
+_led_center_z = BASE_H - WALL - LED_CHANNEL_D - 2 + LED_CHANNEL_W / 2  # 66mm
+_front_panel_h = 24.0
+_front_panel_z = _led_center_z - _front_panel_h / 2  # 54mm
 _hex_panel_h = BASE_H * 0.45
 _hex_panel_z = BASE_H - _hex_panel_h - WALL - 2
 _front_wall_y = -(BASE_D / 2 - _taper_shrink_base * 0.5)
 _right_wall_x = BASE_W / 2 - _taper_shrink_base * 0.5
 
 front_panel = build_front_panel()
-# Translate: panel outer face (Y=0) goes to front wall Y, centered X, panel Z center
-front_panel_placed = front_panel.translate((0, _front_wall_y, _hex_panel_z + _hex_panel_h / 2))
+# Translate: panel centered on LED strip at Z=66
+front_panel_placed = front_panel.translate((0, _front_wall_y, _led_center_z))
 show_object(front_panel_placed, name="front_panel",
             options={"color": (0.0, 0.8, 0.7, 0.9)})
 
 right_panel = build_right_panel()
-# Translate: panel outer face (X=0) goes to right wall X, centered Y, panel Z center
+# Translate: right panel stays at hex mesh position
 right_panel_placed = right_panel.translate((_right_wall_x, 0, _hex_panel_z + _hex_panel_h / 2))
 show_object(right_panel_placed, name="right_panel",
             options={"color": (0.0, 0.8, 0.7, 0.9)})
