@@ -2342,6 +2342,11 @@ mist_btn_marker = (
 show_object(mist_btn_marker, name="btn_mist",
             options={"color": (0.08, 0.82, 0.82, 0.95)})  # cyan/teal
 
+# --- Collar insert (standalone printable part, shown at origin for export) ---
+collar_standalone = build_collar()
+show_object(collar_standalone, name="collar_insert_printable",
+            options={"color": (0.7, 0.7, 0.72, 0.9)})
+
 # --- Internal components (fitment check) ---
 components = build_components()
 for comp_name, (comp_solid, comp_color) in components.items():
@@ -2413,7 +2418,7 @@ print(f"BOTTLES+STORAGE: above center zone  [ORANGE]")
 print(f"  Bottles:   {BOTTLE_TOTAL}x {BOTTLE_DIA}mm dia wells in 3+2 grid")
 print(f"  Row 1 (3): X={_bottle_row1_cx:.1f}, Y={[f'{y:.0f}' for y in _bottle_row1_ys]}")
 print(f"  Row 2 (2): X={_bottle_row2_cx:.1f}, Y={[f'{y:.0f}' for y in _bottle_row2_ys]}")
-print(f"  Bottles hang cap-down from ceiling (3mm recess + 15mm retaining rings)")
+print(f"  Bottles drop into threaded collar inserts (M22x2.5, O-ring + lip retention)")
 print()
 print(f"--- Assembly (building Legos) ---")
 print(f"1. Drop pumps into center zone pockets (2+3 grid, shelf ledges hold them)")
