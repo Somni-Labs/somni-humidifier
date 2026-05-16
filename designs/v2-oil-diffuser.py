@@ -1671,16 +1671,18 @@ def build_components():
     _tube_in_color = (0.3, 0.5, 0.9, 0.7)    # soft blue (inlet)
     _tube_out_color = (0.9, 0.3, 0.3, 0.7)    # soft red (outlet)
 
-    # Inlet tubes: bottle → cap (tube threaded through sealed cap) → outside
-    # bottle body → down through shell interior → pump inlet
+    # Inlet tubes: from TOP of bottle cap → up → over → down outside bottle → pump
     #
-    # Bottle orientation: cap-DOWN means cap faces ceiling (top), body hangs below.
-    # Actually "cap-down" in our model = cap at TOP near ceiling, bottle inverted.
-    # Tube path:
-    #   1. Exits bottom face of cap (Z = cap_bot_z)
-    #   2. Runs down OUTSIDE the bottle body (offset to one side by bottle radius)
-    #   3. Below bottle bottom, routes freely to pump inlet
-    #   4. Horizontal jog at pump level to reach pump position
+    # Bottles hang cap-up (cap nearest ceiling). Tube is threaded through the cap
+    # center. Outside the cap, the tube exits UPWARD from the cap top, bends over
+    # to clear the bottle, then runs down the outside of the bottle body to the pump.
+    #
+    # Path:
+    #   1. Up from cap top center (short vertical stub, ~5mm)
+    #   2. Horizontal jog to clear bottle radius
+    #   3. Down outside the bottle body
+    #   4. Continue dropping below bottle to pump level
+    #   5. Horizontal jog to pump position
 
     for i, ((bx, by), (px, py)) in enumerate(zip(bottle_grid_positions, pump_grid_positions)):
         _cap_top_z = BASE_H + TOP_H - WALL - BOTTLE_WELL_DEPTH  # ~124mm
@@ -1688,7 +1690,11 @@ def build_components():
         _bottle_bot_z = _cap_bot_z - (BOTTLE_HEIGHT - 15)  # body is 40mm → ~69mm
         _pump_top_z = FLOOR_H + PUMP_BODY_H  # ~28mm
 
-        # Offset the external tube run to the side of the bottle (toward pump X)
+        # Tube exits cap top, goes up 5mm, then bends over to the side
+        _stub_h = 5
+        _bend_top_z = _cap_top_z + _stub_h  # top of the stub (~129mm)
+
+        # Offset direction: toward the pump X
         _tube_offset_x = BOTTLE_DIA / 2 + 2  # just outside bottle body
         if px > bx:
             _ext_x = bx + _tube_offset_x
@@ -1697,51 +1703,63 @@ def build_components():
 
         tube_parts = []
 
-        # Seg 1: short horizontal from cap center to tube exit point at cap bottom
-        if abs(_ext_x - bx) > 0.5:
-            seg1 = (
-                cq.Workplane("XY")
-                .box(abs(_ext_x - bx), _tube_t, _tube_t)
-                .translate(((bx + _ext_x) / 2, by, _cap_bot_z))
-            )
-            tube_parts.append(seg1)
-
-        # Seg 2: vertical run down outside the bottle body (cap_bot → bottle_bot)
-        seg2 = (
+        # Seg 1: vertical stub UP from cap top center
+        seg1 = (
             cq.Workplane("XY")
-            .box(_tube_t, _tube_t, _cap_bot_z - _bottle_bot_z)
-            .translate((_ext_x, by, (_cap_bot_z + _bottle_bot_z) / 2))
+            .box(_tube_t, _tube_t, _stub_h)
+            .translate((bx, by, _cap_top_z + _stub_h / 2))
         )
-        tube_parts.append(seg2)
+        tube_parts.append(seg1)
 
-        # Seg 3: vertical drop from bottle bottom to pump level
-        if _bottle_bot_z - _pump_top_z > 1:
+        # Seg 2: horizontal jog at top of stub to clear bottle (to ext_x)
+        _jog_to_ext = abs(_ext_x - bx)
+        if _jog_to_ext > 0.5:
+            seg2 = (
+                cq.Workplane("XY")
+                .box(_jog_to_ext, _tube_t, _tube_t)
+                .translate(((bx + _ext_x) / 2, by, _bend_top_z))
+            )
+            tube_parts.append(seg2)
+
+        # Seg 3: vertical run DOWN outside bottle (from bend top to bottle bottom)
+        _down_h = _bend_top_z - _bottle_bot_z
+        if _down_h > 1:
             seg3 = (
                 cq.Workplane("XY")
-                .box(_tube_t, _tube_t, _bottle_bot_z - _pump_top_z)
-                .translate((_ext_x, by, (_bottle_bot_z + _pump_top_z) / 2))
+                .box(_tube_t, _tube_t, _down_h)
+                .translate((_ext_x, by, (_bend_top_z + _bottle_bot_z) / 2))
             )
             tube_parts.append(seg3)
 
-        # Seg 4: horizontal jog at pump level (X direction) from ext_x to pump X
+        # Seg 4: continue dropping from bottle bottom to pump level
+        _drop_h = _bottle_bot_z - _pump_top_z
+        if _drop_h > 1:
+            seg4 = (
+                cq.Workplane("XY")
+                .box(_tube_t, _tube_t, _drop_h)
+                .translate((_ext_x, by, (_bottle_bot_z + _pump_top_z) / 2))
+            )
+            tube_parts.append(seg4)
+
+        # Seg 5: horizontal jog at pump level (X) from ext_x to pump X
         _jog_x = abs(px - _ext_x)
         if _jog_x > 1:
-            seg4x = (
+            seg5x = (
                 cq.Workplane("XY")
                 .box(_jog_x, _tube_t, _tube_t)
                 .translate(((px + _ext_x) / 2, by, _pump_top_z))
             )
-            tube_parts.append(seg4x)
+            tube_parts.append(seg5x)
 
-        # Seg 5: horizontal jog at pump level (Y direction) from bottle Y to pump Y
+        # Seg 6: horizontal jog at pump level (Y) from bottle Y to pump Y
         _jog_y = abs(py - by)
         if _jog_y > 1:
-            seg4y = (
+            seg5y = (
                 cq.Workplane("XY")
                 .box(_tube_t, _jog_y, _tube_t)
                 .translate((px, (by + py) / 2, _pump_top_z))
             )
-            tube_parts.append(seg4y)
+            tube_parts.append(seg5y)
 
         # Union all segments
         tube_solid = tube_parts[0]
@@ -1750,26 +1768,64 @@ def build_components():
 
         parts[f"tube_inlet_{i}"] = (tube_solid, _tube_in_color)
 
-    # Outlet tubes: from each pump to divider pass-through hole
-    _divider_hole_z = FLOOR_H + (TRAY_Z - FLOOR_H) - 8  # ~24mm, near top of lower divider
+    # Outlet tubes: pump → through divider → drip down into reservoir water
+    #
+    # Path:
+    #   1. From pump top, horizontal run to divider pass-through hole
+    #   2. Through the divider hole into wet zone
+    #   3. Drop down into the water (to just above floor level)
+    _divider_hole_z = FLOOR_H + (TRAY_Z - FLOOR_H) - 8  # ~24mm
+    _water_drip_z = FLOOR_H + 5  # drip endpoint (just above floor in reservoir)
+    _wet_drip_x = DIVIDER_WET_X - WALL_INNER / 2 - 5  # 5mm into wet zone
+
     for i, (px, py) in enumerate(pump_grid_positions):
         _pump_out_z = FLOOR_H + PUMP_BODY_H  # pump output at top
-        # Horizontal run from pump to divider
-        tube_out_horiz = (
-            cq.Workplane("XY")
-            .box(abs(px - DIVIDER_WET_X), _tube_t, _tube_t)
-            .translate(((px + DIVIDER_WET_X) / 2, py, _divider_hole_z))
-        )
-        # Vertical jog if pump output Z ≠ divider hole Z
+
+        out_parts = []
+
+        # Seg 1: vertical from pump top down to divider hole Z
         if abs(_pump_out_z - _divider_hole_z) > 1:
-            tube_out_vert = (
+            seg_v = (
                 cq.Workplane("XY")
                 .box(_tube_t, _tube_t, abs(_pump_out_z - _divider_hole_z))
                 .translate((px, py, (_pump_out_z + _divider_hole_z) / 2))
             )
-            tube_out_horiz = tube_out_horiz.union(tube_out_vert)
+            out_parts.append(seg_v)
 
-        parts[f"tube_outlet_{i}"] = (tube_out_horiz, _tube_out_color)
+        # Seg 2: horizontal run from pump X to divider at hole Z
+        _horiz_len = abs(px - DIVIDER_WET_X)
+        if _horiz_len > 1:
+            seg_h = (
+                cq.Workplane("XY")
+                .box(_horiz_len, _tube_t, _tube_t)
+                .translate(((px + DIVIDER_WET_X) / 2, py, _divider_hole_z))
+            )
+            out_parts.append(seg_h)
+
+        # Seg 3: through divider into wet zone (short horizontal)
+        seg_thru = (
+            cq.Workplane("XY")
+            .box(abs(_wet_drip_x - DIVIDER_WET_X), _tube_t, _tube_t)
+            .translate(((DIVIDER_WET_X + _wet_drip_x) / 2, py, _divider_hole_z))
+        )
+        out_parts.append(seg_thru)
+
+        # Seg 4: drip down into reservoir water
+        _drip_h = _divider_hole_z - _water_drip_z
+        if _drip_h > 1:
+            seg_drip = (
+                cq.Workplane("XY")
+                .box(_tube_t, _tube_t, _drip_h)
+                .translate((_wet_drip_x, py, (_divider_hole_z + _water_drip_z) / 2))
+            )
+            out_parts.append(seg_drip)
+
+        # Union all segments
+        out_solid = out_parts[0]
+        for op in out_parts[1:]:
+            out_solid = out_solid.union(op)
+
+        parts[f"tube_outlet_{i}"] = (out_solid, _tube_out_color)
 
     return parts
 
