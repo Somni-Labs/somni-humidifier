@@ -1420,6 +1420,79 @@ def build_top_shell():
         shell = shell.union(retainer)
 
     # =============================================
+    # INLET TUBE CLIP GUIDES (right zone interior wall)
+    # =============================================
+    # 3 C-shaped clip guides on inner face of the right-zone wall.
+    # Hold 2-3 inlet tubes as they descend from bottle cap level to base entry.
+    # Evenly spaced Z between bottle cap level and meeting line (shell bottom).
+
+    _clip_wall_x = (MEETING_W / 2 - WALL) - CLIP_GUIDE_WALL  # inner face of right wall
+    _clip_z_top = TOP_H - WALL - BOTTLE_WELL_DEPTH - 15 - 5  # below bottle caps
+    _clip_z_bot = WALL + 5  # just above meeting line (shell bottom)
+    _clip_z_spacing = (_clip_z_top - _clip_z_bot) / (CLIP_GUIDE_COUNT - 1)
+
+    for ci in range(CLIP_GUIDE_COUNT):
+        _clip_z = _clip_z_bot + ci * _clip_z_spacing
+        _clip_od = CLIP_GUIDE_ID + 2 * CLIP_GUIDE_WALL
+
+        # Full ring (will cut opening for C-shape)
+        clip_outer = (
+            cq.Workplane("XY")
+            .workplane(offset=_clip_z)
+            .center(_clip_wall_x, 0)
+            .circle(_clip_od / 2)
+            .extrude(CLIP_GUIDE_WALL * 2)
+        )
+        clip_inner = (
+            cq.Workplane("XY")
+            .workplane(offset=_clip_z - 0.1)
+            .center(_clip_wall_x, 0)
+            .circle(CLIP_GUIDE_ID / 2)
+            .extrude(CLIP_GUIDE_WALL * 2 + 0.2)
+        )
+        clip_ring = clip_outer.cut(clip_inner)
+
+        # Cut opening on inner side (-X face) for press-fit — 90° opening
+        clip_opening = (
+            cq.Workplane("XY")
+            .box(_clip_od, _clip_od / 2, CLIP_GUIDE_WALL * 2 + 1)
+            .translate((_clip_wall_x - _clip_od / 2, 0, _clip_z + CLIP_GUIDE_WALL))
+        )
+        clip_ring = clip_ring.cut(clip_opening)
+        shell = shell.union(clip_ring)
+
+    # --- Inlet funnel guide (at shell bottom, guides tubes toward pump area) ---
+    # Flared opening on divider wall face at the base of the top shell interior.
+    # Guides the 5 inlet tubes from the open shell interior into the center zone.
+    _funnel_top_w = 20.0   # wide opening at shell interior
+    _funnel_bot_w = 12.0   # narrow exit toward pump grid
+    _funnel_h = 8.0        # funnel height
+    _funnel_depth = 3.0    # how far it protrudes from divider
+    _funnel_x = TOP_DIVIDER_WET_X + WALL_INNER / 2 + _funnel_depth / 2
+    _funnel_z_bot = WALL + 2  # near bottom of top shell interior
+
+    # Funnel body (tapered box)
+    funnel_guide = (
+        cq.Workplane("XY")
+        .workplane(offset=_funnel_z_bot)
+        .center(_funnel_x, 0)
+        .rect(_funnel_depth, _funnel_top_w)
+        .workplane(offset=_funnel_h)
+        .center(0, 0)
+        .rect(_funnel_depth, _funnel_top_w + 6)
+        .loft()
+    )
+    shell = shell.union(funnel_guide)
+
+    # Cut the interior to create the channel
+    funnel_channel = (
+        cq.Workplane("XY")
+        .box(_funnel_depth + 1, _funnel_bot_w, _funnel_h + 1)
+        .translate((_funnel_x, 0, _funnel_z_bot + _funnel_h / 2))
+    )
+    shell = shell.cut(funnel_channel)
+
+    # =============================================
     # CAPACITIVE TOUCH BUTTONS (top surface, front edge)
     # =============================================
     btn_x_center = 0
