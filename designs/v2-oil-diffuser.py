@@ -1822,6 +1822,53 @@ def build_top_shell():
         shell = shell.cut(module_pocket)
 
     # =============================================
+    # TOUCH BUTTON WIRE CHANNELS (guided routing to tray)
+    # =============================================
+    # Each button gets: exit slot → ceiling run (+Y) → vertical drop
+
+    _ceiling_z = TOP_H - WALL  # 57mm — interior ceiling surface
+    _channel_run_y_start = TOUCH_BTN_Y  # -25mm (button position)
+    _channel_run_y_end = 0.0            # center of shell
+    _channel_run_length = _channel_run_y_end - _channel_run_y_start  # 25mm
+    _drop_z_top = _ceiling_z            # 57mm
+    _drop_z_bot = 10.0                  # below tray level
+    _drop_height = _drop_z_top - _drop_z_bot  # 47mm
+
+    for btn_i in range(TOUCH_BTN_COUNT):
+        bx = btn_x_center + (btn_i - (TOUCH_BTN_COUNT - 1) / 2) * TOUCH_BTN_SPACING
+        by = TOUCH_BTN_Y
+
+        # --- Wire exit slot (connects button pocket floor to ceiling channel) ---
+        exit_slot = (
+            cq.Workplane("XY")
+            .workplane(offset=_ceiling_z - TOUCH_WIRE_CH_D)
+            .center(bx, by)
+            .rect(TOUCH_WIRE_CH_W, TOUCH_WIRE_CH_W)
+            .extrude(TOUCH_WIRE_CH_D + TOUCH_BTN_H + 1)
+        )
+        shell = shell.cut(exit_slot)
+
+        # --- Ceiling run groove (from button Y toward center, along +Y) ---
+        ceiling_channel = (
+            cq.Workplane("XY")
+            .box(TOUCH_WIRE_CH_W, _channel_run_length, TOUCH_WIRE_CH_D)
+            .translate((bx,
+                        _channel_run_y_start + _channel_run_length / 2,
+                        _ceiling_z - TOUCH_WIRE_CH_D / 2))
+        )
+        shell = shell.cut(ceiling_channel)
+
+        # --- Vertical drop groove (from ceiling down to Z=10) ---
+        drop_channel = (
+            cq.Workplane("XY")
+            .box(TOUCH_WIRE_CH_W, TOUCH_WIRE_DROP_D, _drop_height)
+            .translate((bx,
+                        _channel_run_y_end,
+                        _drop_z_bot + _drop_height / 2))
+        )
+        shell = shell.cut(drop_channel)
+
+    # =============================================
     # SHARED FEATURES
     # =============================================
 
