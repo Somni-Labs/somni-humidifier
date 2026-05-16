@@ -2661,6 +2661,29 @@ for _vi in range(TOUCH_BTN_COUNT):
     show_object(_vis_drop, name=f"wire_channel_drop_{_vi}",
                 options={"color": (1.0, 0.9, 0.0, 0.95)})
 
+# --- USB-C cable channel visualization (orange for visibility) ---
+_usbc_x_vis = (_pump_left_col_cx + _pump_right_col_cx) / 2
+_t_usbc_vis = (TRAY_Z + TRAY_FLOOR + 3) / BASE_H
+_d_at_usbc_vis = BASE_D + _t_usbc_vis * (MEETING_D - BASE_D)
+_rear_inner_y_vis = _d_at_usbc_vis / 2 - WALL
+_usbc_ch_vis = (
+    cq.Workplane("XY")
+    .box(USBC_CH_W, 18.0, USBC_CH_D)
+    .translate((_usbc_x_vis, _rear_inner_y_vis - 9.0, TRAY_Z + USBC_CH_D / 2))
+)
+show_object(_usbc_ch_vis, name="usbc_cable_channel",
+            options={"color": (1.0, 0.5, 0.0, 0.95)})
+# Strain relief hook
+_usbc_hook_vis = (
+    cq.Workplane("XY")
+    .workplane(offset=TRAY_Z)
+    .center(_usbc_x_vis, _rear_inner_y_vis - USBC_HOOK_INSET)
+    .circle(USBC_HOOK_DIA / 2)
+    .extrude(USBC_HOOK_H)
+)
+show_object(_usbc_hook_vis, name="usbc_strain_relief_hook",
+            options={"color": (1.0, 0.3, 0.0, 0.95)})
+
 # --- Access panels (installed positions) ---
 _taper_shrink_base = BASE_H * math.tan(math.radians(6))
 _led_center_z = BASE_H - WALL - LED_CHANNEL_D - 2 + LED_CHANNEL_W / 2  # 66mm
