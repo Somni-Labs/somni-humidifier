@@ -877,13 +877,6 @@ def build_base():
     hex_panel_h = BASE_H * 0.45
     hex_panel_z = BASE_H - hex_panel_h - WALL - 2
 
-    # Front wall hex mesh
-    hex_front = hex_mesh_cutout(BASE_W * 0.6, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
-    hex_front_pos = (hex_front
-        .rotateAboutCenter((1, 0, 0), 90)
-        .translate((0, -(BASE_D / 2 - _taper_shrink_base * 0.5), hex_panel_z + hex_panel_h / 2)))
-    base = base.cut(hex_front_pos)
-
     # Left wall hex mesh
     hex_left = hex_mesh_cutout(BASE_D * 0.5, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
     hex_left_pos = (hex_left
@@ -899,14 +892,6 @@ def build_base():
         .translate((0, (BASE_D / 2 - _taper_shrink_base * 0.5), hex_panel_z + hex_panel_h / 2)))
     base = base.cut(hex_rear_pos)
 
-    # Right wall hex mesh
-    hex_right = hex_mesh_cutout(BASE_D * 0.4, hex_panel_h, HEX_CELL_SIZE, HEX_WALL, HEX_MARGIN)
-    hex_right_pos = (hex_right
-        .rotateAboutCenter((0, 0, 1), 90)
-        .rotateAboutCenter((0, 1, 0), 90)
-        .translate((BASE_W / 2 - _taper_shrink_base * 0.5, 0, hex_panel_z + hex_panel_h / 2)))
-    base = base.cut(hex_right_pos)
-
     # --- Magnet pockets on base rim ---
     for mx, my in magnet_positions:
         mp = (cq.Workplane("XY").workplane(offset=BASE_H - MAGNET_H)
@@ -919,101 +904,6 @@ def build_base():
         pin = (cq.Workplane("XY").workplane(offset=BASE_H)
                .center(px, py).circle(PIN_DIA / 2).extrude(PIN_H))
         base = base.union(pin)
-
-    # --- SOMNI LABS branding (rear panel, +Y wall) ---
-    brand_z = BASE_H * 0.30
-    logo_cx = -15       # adjusted for narrower rear panel
-    groove_r = 0.6
-    groove_d = BRAND_DEPTH
-
-    # S-curve waypoints — sampled from SVG bezier paths, scaled to 25mm.
-    s_curves = [
-        # Curve 0 (outermost)
-        [(7.0,10.0),(8.23,9.74),(9.27,9.14),(10.14,7.95),
-         (10.5,6.0),(8.32,4.02),(3.11,2.61),(-3.11,1.39),(-8.32,-0.02),
-         (-10.5,-2.0),(-9.27,-6.9),(-7.36,-10.45),(-7.0,-11.0)],
-        # Curve 2
-        [(5.5,8.0),(6.56,7.78),(7.44,7.24),(8.19,6.21),
-         (8.5,4.5),(6.73,2.76),(2.52,1.53),(-2.52,0.47),(-6.73,-0.76),
-         (-8.5,-2.5),(-7.44,-6.3),(-5.81,-8.66),(-5.5,-9.0)],
-        # Curve 4
-        [(4.0,6.0),(4.88,5.81),(5.62,5.35),(6.24,4.46),
-         (6.5,3.0),(5.15,1.51),(1.92,0.46),(-1.92,-0.46),(-5.15,-1.51),
-         (-6.5,-3.0),(-5.62,-5.7),(-4.26,-6.87),(-4.0,-7.0)],
-        # Curve 6 (innermost)
-        [(2.5,4.0),(3.2,3.84),(3.8,3.46),(4.29,2.72),
-         (4.5,1.5),(3.56,0.26),(1.33,-0.62),(-1.33,-1.38),(-3.56,-2.26),
-         (-4.5,-3.5),(-3.8,-4.89),(-2.71,-5.04),(-2.5,-5.0)],
-    ]
-
-    # Cut all S-curve waypoints + center ring as a single batched boolean.
-    groove_size = groove_r * 2
-    _brand_cuts = []
-
-    for curve_pts in s_curves:
-        for cx_pt, cz_pt in curve_pts:
-            px = logo_cx + cx_pt
-            pz = brand_z + cz_pt
-            _brand_cuts.append(
-                cq.Workplane("XY")
-                .box(groove_size, groove_d + 1, groove_size)
-                .translate((px, BASE_D / 2 - groove_d / 2 + 0.5, pz))
-            )
-
-    # Center circle — ring of small box cuts
-    center_ring_r = 2.0
-    center_dot_r = 1.0
-    num_ring_pts = 16
-    for i in range(num_ring_pts):
-        angle = 2 * math.pi * i / num_ring_pts
-        rx = logo_cx + center_ring_r * math.cos(angle)
-        rz = brand_z + center_ring_r * math.sin(angle)
-        _brand_cuts.append(
-            cq.Workplane("XY")
-            .box(groove_size, groove_d + 1, groove_size)
-            .translate((rx, BASE_D / 2 - groove_d / 2 + 0.5, rz))
-        )
-
-    # Center dot
-    _brand_cuts.append(
-        cq.Workplane("XY")
-        .box(center_dot_r * 2, groove_d + 1, center_dot_r * 2)
-        .translate((logo_cx, BASE_D / 2 - groove_d / 2 + 0.5, brand_z))
-    )
-
-    # Batch all branding cuts into a single boolean operation
-    if _brand_cuts:
-        from cadquery import Compound
-        _brand_compound = Compound.makeCompound(
-            [s.val() for s in _brand_cuts]
-        )
-        base = base.cut(cq.Workplane("XY").newObject([_brand_compound]))
-
-    # Wordmark: "SOMNI" + "LABS" to the right of the icon
-    try:
-        brand_main = (
-            cq.Workplane("XZ")
-            .workplane(offset=BASE_D / 2)
-            .center(10, brand_z + 4)
-            .text("SOMNI", BRAND_FONT_SIZE, -BRAND_DEPTH, font="sans-serif")
-        )
-        base = base.cut(brand_main)
-        brand_sub = (
-            cq.Workplane("XZ")
-            .workplane(offset=BASE_D / 2)
-            .center(10, brand_z - 6)
-            .text("LABS", BRAND_SUB_SIZE, -BRAND_DEPTH, font="sans-serif")
-        )
-        base = base.cut(brand_sub)
-    except Exception:
-        brand_recess = (
-            cq.Workplane("XY")
-            .workplane(offset=brand_z)
-            .center(10, BASE_D / 2)
-            .rect(45, 16)
-            .extrude(-BRAND_DEPTH)
-        )
-        base = base.cut(brand_recess)
 
     return base
 
