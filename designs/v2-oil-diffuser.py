@@ -2057,6 +2057,58 @@ def build_components():
 
         parts[f"tube_outlet_{i}"] = (out_solid, _tube_out_color)
 
+    # =============================================
+    # ASSEMBLY CHANNEL VISUALIZATION
+    # =============================================
+    # Subtle ghost objects showing channel paths for visual verification.
+    # These represent the VOID space of each channel (where tubes/wires sit).
+
+    _ch_tube_color = (0.4, 0.9, 0.4, 0.3)   # translucent green (tube paths)
+    _ch_wire_color = (0.9, 0.9, 0.3, 0.3)    # translucent yellow (wire paths)
+
+    # --- Tube trough (divider face) ---
+    _divider_cz_face_x = DIVIDER_WET_X + WALL_INNER / 2
+    _trough_cx = _divider_cz_face_x + TUBE_TROUGH_D / 2
+    _trough_height = TUBE_TROUGH_Z_TOP - TUBE_TROUGH_Z_BOT
+    ch_trough = (
+        cq.Workplane("XY")
+        .box(TUBE_TROUGH_D - 1, TUBE_TROUGH_Y_SPAN - 2, _trough_height - 1)
+        .translate((_trough_cx, 0,
+                    (TUBE_TROUGH_Z_TOP + TUBE_TROUGH_Z_BOT) / 2))
+    )
+    parts["channel_tube_trough"] = (ch_trough, _ch_tube_color)
+
+    # --- Tube bridge (horizontal, right-col to divider) ---
+    _bridge_x_start = _pump_right_col_cx + PUMP_BODY_W / 2 + 2
+    _bridge_x_end = _divider_cz_face_x + TUBE_TROUGH_D
+    _bridge_length = abs(_bridge_x_start - _bridge_x_end)
+    _bridge_cx = (_bridge_x_start + _bridge_x_end) / 2
+    ch_bridge = (
+        cq.Workplane("XY")
+        .box(_bridge_length - 2, 8, TUBE_BRIDGE_DEPTH - 0.5)
+        .translate((_bridge_cx, 0, TUBE_BRIDGE_Z + TUBE_BRIDGE_DEPTH / 2))
+    )
+    parts["channel_tube_bridge"] = (ch_bridge, _ch_tube_color)
+
+    # --- Wire bus (outer wall, floor level) ---
+    _outer_wall_inner_x = MEETING_W / 2 - WALL
+    _wire_bus_cx = _outer_wall_inner_x - WIRE_BUS_D / 2
+    ch_wire_bus = (
+        cq.Workplane("XY")
+        .box(WIRE_BUS_D - 1, 68, WIRE_BUS_W - 1)
+        .translate((_wire_bus_cx, 0, FLOOR_H + WIRE_BUS_W / 2))
+    )
+    parts["channel_wire_bus"] = (ch_wire_bus, _ch_wire_color)
+
+    # --- Wire riser (outer wall, vertical) ---
+    _riser_height = TRAY_Z - FLOOR_H
+    ch_riser = (
+        cq.Workplane("XY")
+        .box(WIRE_RISER_D - 1, WIRE_RISER_W - 1, _riser_height - 1)
+        .translate((_wire_bus_cx, 0, (FLOOR_H + TRAY_Z) / 2))
+    )
+    parts["channel_wire_riser"] = (ch_riser, _ch_wire_color)
+
     return parts
 
 
