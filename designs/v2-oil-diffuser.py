@@ -638,6 +638,46 @@ def build_base():
     )
     base = base.cut(usbc_cutout)
 
+    # --- USB-C cable channel (rear wall → PD+Buck on tray) ---
+    # Channel runs at TRAY_Z level from rear wall inward toward tray
+    _rear_inner_y = _d_at_usbc / 2 - WALL  # rear wall inner face Y at port height
+    _usbc_ch_length = 18.0  # channel run length (rear wall to tray edge)
+    _usbc_ch_z = TRAY_Z  # channel floor Z (cable drops from port into channel)
+
+    # Channel groove (cut into base interior)
+    usbc_channel = (
+        cq.Workplane("XY")
+        .box(USBC_CH_W, _usbc_ch_length, USBC_CH_D)
+        .translate((_usbc_x, _rear_inner_y - _usbc_ch_length / 2,
+                    _usbc_ch_z + USBC_CH_D / 2))
+    )
+    base = base.cut(usbc_channel)
+
+    # Strain relief hook (cylindrical post, cable wraps around it)
+    usbc_hook = (
+        cq.Workplane("XY")
+        .workplane(offset=_usbc_ch_z)
+        .center(_usbc_x, _rear_inner_y - USBC_HOOK_INSET)
+        .circle(USBC_HOOK_DIA / 2)
+        .extrude(USBC_HOOK_H)
+    )
+    base = base.union(usbc_hook)
+
+    # Retaining clips (2 clips along channel run)
+    _usbc_clip_positions = [
+        _rear_inner_y - 3.0,    # near port end
+        _rear_inner_y - 15.0,   # near tray end
+    ]
+    for _clip_y in _usbc_clip_positions:
+        usbc_clip = (
+            cq.Workplane("XY")
+            .box(USBC_CH_CLIP_OVERHANG, USBC_CH_CLIP_THICK, USBC_CH_D)
+            .translate((_usbc_x - USBC_CH_W / 2 + USBC_CH_CLIP_OVERHANG / 2,
+                        _clip_y,
+                        _usbc_ch_z + USBC_CH_D / 2))
+        )
+        base = base.union(usbc_clip)
+
     # === WIRE ROUTING ===
     # Atomizer wires must stay DRY. Water level reaches Z ≈ FLOOR_H + 40 = 43mm.
     # Route: atomizer → UP divider wall (sealed vertical channel on wet side)
