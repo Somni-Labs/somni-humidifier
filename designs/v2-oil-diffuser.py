@@ -1555,6 +1555,66 @@ def build_front_panel():
 
 
 # =============================================================================
+# BUILD RIGHT PANEL (magnetic snap-off, maintenance access)
+# =============================================================================
+
+def build_right_panel():
+    """Right maintenance access panel. Solid PETG, no thinning.
+
+    Gives access to wire bus, pump spurs, right-column pumps.
+    Sits flush in right wall (+X) opening. Held by 4x 4mm magnets.
+
+    Generated at origin: width along Y, height along Z, thickness along X.
+    Panel outer face at X=0, inner face at X=-WALL (3mm thick).
+    """
+    _panel_w = BASE_D * 0.4    # 41.6mm
+    _panel_h = BASE_H * 0.45   # 31.5mm
+    _panel_t = WALL             # 3mm thick
+
+    # Solid panel body
+    panel = (
+        cq.Workplane("XY")
+        .box(_panel_t, _panel_w - PANEL_GAP * 2, _panel_h - PANEL_GAP * 2)
+        .translate((-_panel_t / 2, 0, 0))
+    )
+
+    # Rabbet edges (1.5mm step for flush fit)
+    rabbet_outer = (
+        cq.Workplane("XY")
+        .box(PANEL_LIP_DEPTH, _panel_w - PANEL_GAP * 2, _panel_h - PANEL_GAP * 2)
+        .translate((-PANEL_LIP_DEPTH / 2, 0, 0))
+    )
+    rabbet_inner = (
+        cq.Workplane("XY")
+        .box(PANEL_LIP_DEPTH + 1,
+             _panel_w - PANEL_GAP * 2 - PANEL_LIP_WIDTH * 2,
+             _panel_h - PANEL_GAP * 2 - PANEL_LIP_WIDTH * 2)
+        .translate((-PANEL_LIP_DEPTH / 2, 0, 0))
+    )
+    rabbet_cut = rabbet_outer.cut(rabbet_inner)
+    panel = panel.cut(rabbet_cut)
+
+    # --- Magnet pockets (inner face, 4 corners) ---
+    _mag_pocket_depth = PANEL_MAGNET_H + PANEL_MAGNET_TOL
+    _mag_pocket_dia = PANEL_MAGNET_DIA + PANEL_MAGNET_TOL * 2
+    _rp_mags = [
+        (-(_panel_w / 2 - PANEL_GAP) + PANEL_MAGNET_INSET, -(_panel_h / 2 - PANEL_GAP) + PANEL_MAGNET_INSET),
+        ( (_panel_w / 2 - PANEL_GAP) - PANEL_MAGNET_INSET, -(_panel_h / 2 - PANEL_GAP) + PANEL_MAGNET_INSET),
+        (-(_panel_w / 2 - PANEL_GAP) + PANEL_MAGNET_INSET,  (_panel_h / 2 - PANEL_GAP) - PANEL_MAGNET_INSET),
+        ( (_panel_w / 2 - PANEL_GAP) - PANEL_MAGNET_INSET,  (_panel_h / 2 - PANEL_GAP) - PANEL_MAGNET_INSET),
+    ]
+    for _my, _mz in _rp_mags:
+        mag_pocket = (
+            cq.Workplane("XY")
+            .box(_mag_pocket_depth, _mag_pocket_dia, _mag_pocket_dia)
+            .translate((-_panel_t + _mag_pocket_depth / 2, _my, _mz))
+        )
+        panel = panel.cut(mag_pocket)
+
+    return panel
+
+
+# =============================================================================
 # BUILD TOP SHELL
 # =============================================================================
 
