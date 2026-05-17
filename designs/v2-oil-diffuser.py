@@ -89,7 +89,7 @@ RESERVOIR_DEPTH = BASE_H - FLOOR_H - WALL
 # --- Wet zone partition (divides reservoir from mixing well) ---
 PARTITION_Y = 10.0            # Y position of partition wall center
 PARTITION_WALL = 2.5          # wall thickness
-PARTITION_H = 15.0            # wall height from floor
+PARTITION_H = RESERVOIR_DEPTH  # wall height from floor (matches reservoir walls)
 PARTITION_OVERFLOW_W = 3.0    # overflow notch width (centered on X)
 
 # --- Ultrasonic atomizer ---
