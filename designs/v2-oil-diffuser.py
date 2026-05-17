@@ -55,8 +55,8 @@ FILLET_R = 1.5            # small edge breaks
 BASE_W = 130             # base footprint width (X) at Z=0 — rectangular
 BASE_D = 104             # base footprint depth (Y) at Z=0
 BASE_H = 70              # base height (Z)
-TOP_H = 60               # top shell height (Z)
-TOTAL_H = BASE_H + TOP_H # 130mm assembled
+TOP_H = 62               # top shell height (Z) — 55mm bottles + walls + margin
+TOTAL_H = BASE_H + TOP_H # 132mm assembled
 TAPER_ANGLE = 6          # degrees inward per side
 
 # Derived taper dimensions
@@ -98,7 +98,7 @@ ATOMIZER_DRIVER_W = 35
 ATOMIZER_DRIVER_D = 25
 ATOMIZER_MOUNT_DIA = 24  # 20mm piezo + 2mm rim each side
 ATOMIZER_POS_X = -38.1       # centered in narrower wet zone
-ATOMIZER_POS_Y = 29.7        # rear mixing chamber (was 0)
+ATOMIZER_POS_Y = 28.5        # rear mixing chamber, 1mm clearance from rear wall
 
 # --- Peristaltic pumps (6x JIHPUMP WX3 micro, 3+3 grid in center zone) ---
 PUMP_BODY_W = 35             # WX3 length oriented along X
@@ -159,7 +159,7 @@ BME280_D = 12
 BME280_H = 5
 
 # --- Electronics tray ---
-TRAY_WALL = 2.0
+TRAY_WALL = 1.5             # reduced from 2.0 to gain Y for component fit
 TRAY_FLOOR = 2.0
 TRAY_LEG_W = 5.0
 TRAY_LEG_INSET = 8.0
