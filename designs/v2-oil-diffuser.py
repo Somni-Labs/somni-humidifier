@@ -626,13 +626,13 @@ def build_base():
         base = base.cut(pass_hole)
 
     # Water pump INLET pass-through hole (reservoir → center zone)
-    # The water pump draws from the reservoir; tube passes through divider
-    # at the water pump's Y position (last pump in right column).
-    _water_pump_y = pump_grid_positions[PUMP_TOTAL - 1][1]  # Y=+25.5
+    # The water pump draws from the reservoir (Y < PARTITION_Y).
+    # Hole is in the reservoir portion of the divider wall (Y=0, center of reservoir).
+    _water_inlet_y = 0.0  # center of reservoir (well below PARTITION_Y=+10)
     water_inlet_hole = (
         cq.Workplane("XY")
         .workplane(offset=TUBE_HOLE_Z - TUBE_HOLE_DIA / 2)
-        .center(DIVIDER_WET_X, _water_pump_y)
+        .center(DIVIDER_WET_X, _water_inlet_y)
         .circle(TUBE_HOLE_DIA / 2)
         .extrude(TUBE_HOLE_DIA + 2)
     )
@@ -2510,20 +2510,21 @@ def build_components():
         parts[f"tube_inlet_{i}"] = (tube_solid, _tube_in_color)
 
     # --- Water pump inlet tube (reservoir → through divider → water pump) ---
-    # The 6th pump (index 5) draws water from the reservoir in the wet zone.
-    # Tube path: reservoir floor → up to pass-through height → through divider → pump inlet
+    # The 6th pump (index 5) draws water from the RESERVOIR (Y < PARTITION_Y).
+    # Tube path: reservoir pickup → up to hole height → to divider → through
+    # divider at Y=0 (reservoir zone) → center zone → Y-run to pump → pump inlet
     _water_pump_idx = PUMP_TOTAL - 1  # last pump is water pump
     _wpx, _wpy = pump_grid_positions[_water_pump_idx]
     _water_inlet_color = (0.2, 0.7, 1.0, 0.85)  # bright cyan (water inlet)
 
-    # Reservoir pickup point (near bottom of reservoir, centered X in wet zone)
+    # Reservoir pickup point (near bottom, centered in reservoir zone)
     _res_pickup_x = (-(MEETING_W / 2 - WALL) + DIVIDER_WET_X) / 2  # mid wet zone X
-    _res_pickup_y = _wpy  # same Y as water pump for simple routing
+    _res_pickup_y = 0.0  # center of reservoir (Y < PARTITION_Y=+10)
     _res_pickup_z = FLOOR_H + 3  # near floor (submerged pickup)
 
-    # Pass-through Z: use one of the existing tube pass-through holes or a dedicated one
-    # Route at TUBE_HOLE_Z height through the divider (same as outlet holes)
+    # Pass-through at Y=0 (reservoir zone), same Z as other tube holes
     _water_inlet_thru_z = TUBE_HOLE_Z
+    _water_inlet_thru_y = 0.0  # in reservoir zone
     _pump_top_z = FLOOR_H + PUMP_BODY_H
 
     water_inlet_parts = []
@@ -2545,31 +2546,43 @@ def build_components():
         seg_res_h = (
             cq.Workplane("XY")
             .box(_res_horiz_len, _tube_t, _tube_t)
-            .translate(((_res_pickup_x + DIVIDER_WET_X) / 2, _res_pickup_y,
+            .translate(((_res_pickup_x + DIVIDER_WET_X) / 2, _water_inlet_thru_y,
                         _water_inlet_thru_z))
         )
         water_inlet_parts.append(seg_res_h)
 
-    # Seg 3: through divider wall (wet zone → center zone)
+    # Seg 3: through divider wall at Y=0 (reservoir zone → center zone)
     _thru_len = WALL_INNER + 4
     seg_thru_wall = (
         cq.Workplane("XY")
         .box(_thru_len, _tube_t, _tube_t)
-        .translate((DIVIDER_WET_X, _res_pickup_y, _water_inlet_thru_z))
+        .translate((DIVIDER_WET_X, _water_inlet_thru_y, _water_inlet_thru_z))
     )
     water_inlet_parts.append(seg_thru_wall)
 
-    # Seg 4: horizontal run in center zone from divider to pump X
+    # Seg 4: horizontal run in center zone from divider to pump X (at Y=0 still)
     _cz_horiz_len = abs(_wpx - DIVIDER_WET_X) - _thru_len / 2
     if _cz_horiz_len > 1:
         seg_cz_h = (
             cq.Workplane("XY")
             .box(_cz_horiz_len, _tube_t, _tube_t)
-            .translate(((DIVIDER_WET_X + _wpx) / 2, _wpy, _water_inlet_thru_z))
+            .translate(((DIVIDER_WET_X + _wpx) / 2, _water_inlet_thru_y,
+                        _water_inlet_thru_z))
         )
         water_inlet_parts.append(seg_cz_h)
 
-    # Seg 5: vertical rise from pass-through Z up to pump top
+    # Seg 5: Y-run from inlet Y=0 to water pump Y position
+    _y_jog = abs(_wpy - _water_inlet_thru_y)
+    if _y_jog > 1:
+        seg_y_jog = (
+            cq.Workplane("XY")
+            .box(_tube_t, _y_jog, _tube_t)
+            .translate((_wpx, (_water_inlet_thru_y + _wpy) / 2,
+                        _water_inlet_thru_z))
+        )
+        water_inlet_parts.append(seg_y_jog)
+
+    # Seg 6: vertical rise from pass-through Z up to pump top
     _rise_to_pump = _pump_top_z - _water_inlet_thru_z
     if _rise_to_pump > 1:
         seg_up = (
