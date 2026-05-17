@@ -197,16 +197,28 @@ WIRE_PORT_H = 4.0
 WIRE_PORT_Z_ABOVE_WATER = FLOOR_H + 45  # above max water level (43mm) + margin
 
 # --- Assembly channels (V3.3) ---
-# Tube troughs (divider wall side)
-TUBE_TROUGH_W = 10.0         # combined divider-face trough internal width (5 tubes)
+# Tube routing trough (divider wall side)
+# All 6 outlet tubes converge in this trough, which guides the physical
+# silicone tubes toward 6 pass-through holes — ALL positioned in the mixing
+# well (Y > PARTITION_Y). Tubes pass through the divider and terminate inside
+# the mixing well, dripping directly onto/near the atomizer.
+TUBE_TROUGH_W = 10.0         # trough internal width (holds 6× 5mm OD tubes)
 TUBE_TROUGH_D = 4.0          # depth (cut INTO divider wall face)
 TUBE_TROUGH_WALL = 1.5       # trough wall thickness
 TUBE_TROUGH_Z_TOP = 29.0     # top of trough (1mm above pump tops)
-TUBE_TROUGH_Z_BOT = 20.0     # bottom of trough (below lowest holes)
-TUBE_TROUGH_Y_SPAN = 60.0    # Y=-30 to Y=+30
+TUBE_TROUGH_Z_BOT = 22.0     # bottom of trough
+TUBE_TROUGH_Y_SPAN = 80.0    # Y=-40 to Y=+40 (covers all pump Y positions)
 TUBE_BRIDGE_Z = 29.0         # horizontal bridge height (above pump tops)
 TUBE_BRIDGE_DEPTH = 2.0      # shallow groove depth (tray acts as lid)
 TUBE_BRIDGE_WALL = 1.0       # low walls for bridge
+
+# Tube pass-through holes (6 holes, all in mixing well Y > PARTITION_Y)
+# Tubes physically pass through these holes and terminate inside the mixing well.
+# Holes are clustered in the mixing well zone, spaced to avoid crowding.
+TUBE_HOLE_DIA = 6.0           # pass-through hole diameter (5mm tube + clearance)
+TUBE_HOLE_Z = 25.0            # Z position of hole centers (mid-trough height)
+# 6 holes spread across Y=+13 to Y=+38 (all safely in mixing well)
+TUBE_HOLE_Y_POSITIONS = (13.0, 18.0, 23.0, 28.0, 33.0, 38.0)
 
 # Wire bus (outer wall side)
 WIRE_BUS_W = 6.0             # main bus channel internal width
@@ -226,7 +238,12 @@ CLIP_GUIDE_COUNT = 3         # number of clip guides on inlet run
 TUBE_CHANNEL_W = 4           # collector channel width
 TUBE_CHANNEL_D = 3           # collector channel depth
 TUBE_SPUR_W = 3              # spur from pump to collector
-TUBE_HOLE_DIA = 6            # pass-through hole in divider
+# NOTE: TUBE_HOLE_DIA is the pass-through hole diameter (see Assembly channels above)
+
+# --- Atomizer wire routing ---
+# Wire channel runs within the mixing well (Y > PARTITION_Y) to avoid
+# crossing the partition wall. Shifted from Y=0 to Y=+25.
+ATM_WIRE_Y = 25.0            # Y position for atomizer wire floor run + vertical chase
 
 # --- Capacitive touch buttons ---
 TOUCH_BTN_W = 15
@@ -595,17 +612,17 @@ def build_base():
             )
             base = base.union(ledge)
 
-    # Tube pass-through holes in divider (pump output -> reservoir)
-    # One hole per unique pump Y position
-    for tube_y in _all_pump_ys:
-        tube_out = (
+    # Tube pass-through holes in divider (6 holes, all in mixing well Y > PARTITION_Y)
+    # Physical silicone tubes pass through these holes into the mixing well.
+    for hole_y in TUBE_HOLE_Y_POSITIONS:
+        pass_hole = (
             cq.Workplane("XY")
-            .workplane(offset=FLOOR_H + divider_h - 8)
-            .center(DIVIDER_WET_X, tube_y)
+            .workplane(offset=TUBE_HOLE_Z - TUBE_HOLE_DIA / 2)
+            .center(DIVIDER_WET_X, hole_y)
             .circle(TUBE_HOLE_DIA / 2)
-            .extrude(10)
+            .extrude(TUBE_HOLE_DIA + 2)
         )
-        base = base.cut(tube_out)
+        base = base.cut(pass_hole)
 
     # === CENTER ZONE UPPER LEVEL — tray support ledges ===
     interior_y_min = -(MEETING_D / 2 - WALL - 2)
@@ -713,13 +730,17 @@ def build_base():
 
     # === WIRE ROUTING ===
     # Atomizer wires must stay DRY. Water level reaches Z ≈ FLOOR_H + 40 = 43mm.
-    # Route: atomizer → UP divider wall (sealed vertical channel on wet side)
-    #        → cross divider ABOVE water line at Z=48 → center zone → tray
+    # Route: atomizer → floor run at Y=+25 (within mixing well) → UP divider wall
+    #        (sealed vertical channel on wet side at Y=+25) → cross divider ABOVE
+    #        water line at Z=48 → center zone → tray
+    #
+    # All atomizer wire routing stays within the mixing well (Y > PARTITION_Y)
+    # to avoid crossing the partition wall.
     #
     # Other wires (pump power, LED, buttons) stay in the center zone / tray
     # and never contact water.
 
-    # --- Atomizer vertical wire chase (wet side of divider wall) ---
+    # --- Atomizer vertical wire chase (wet side of divider wall, Y=ATM_WIRE_Y) ---
     # Sealed channel running up the wet face of the divider from floor to above water
     _atm_chase_z_bot = FLOOR_H
     _atm_chase_z_top = FLOOR_H + 45  # 48mm — above max water level (43mm) + margin
@@ -727,12 +748,13 @@ def build_base():
     atm_vertical_chase = (
         cq.Workplane("XY")
         .box(CHANNEL_W, CHANNEL_W, _atm_chase_z_top - _atm_chase_z_bot)
-        .translate((_atm_chase_x, 0,
+        .translate((_atm_chase_x, ATM_WIRE_Y,
                     (_atm_chase_z_bot + _atm_chase_z_top) / 2))
     )
     base = base.cut(atm_vertical_chase)
 
     # --- Atomizer horizontal run (wet zone floor, from atomizer to divider) ---
+    # Runs at Y=ATM_WIRE_Y (+25), entirely within the mixing well (Y > +11.25).
     # This short run is on the floor and WILL be submerged — wires are waterproof
     # silicone-jacketed. The channel just keeps them tidy.
     _atm_floor_x_start = ATOMIZER_POS_X
@@ -740,17 +762,17 @@ def build_base():
     atm_floor_run = (
         cq.Workplane("XY")
         .box(abs(_atm_floor_x_end - _atm_floor_x_start), CHANNEL_W, CHANNEL_D)
-        .translate(((_atm_floor_x_start + _atm_floor_x_end) / 2, 0,
+        .translate(((_atm_floor_x_start + _atm_floor_x_end) / 2, ATM_WIRE_Y,
                      FLOOR_H + CHANNEL_D / 2))
     )
     base = base.cut(atm_floor_run)
 
-    # --- Cross-divider wire port (ABOVE water line) ---
+    # --- Cross-divider wire port (ABOVE water line, at Y=ATM_WIRE_Y) ---
     _wire_port_z_above_water = FLOOR_H + 45  # Z=48, above water level
     atm_cross_port = (
         cq.Workplane("XY")
         .workplane(offset=_wire_port_z_above_water)
-        .center(DIVIDER_WET_X, 0)
+        .center(DIVIDER_WET_X, ATM_WIRE_Y)
         .rect(WALL_INNER + 2, WIRE_PORT_W)
         .extrude(WIRE_PORT_H)
     )
@@ -769,14 +791,20 @@ def build_base():
     )
     base = base.cut(pump_wire_drop)
 
-    # === ASSEMBLY CHANNELS — TUBE ROUTING (divider wall side) ===
+    # === ASSEMBLY CHANNELS — INTEGRATED MANIFOLD TROUGH (divider wall side) ===
 
-    # --- Combined divider-face tube trough ---
-    # All 5 outlet tubes converge here before entering their respective pass-through holes.
-    # Cut INTO the center-zone face of the divider wall (does not protrude into center zone).
-    # Open face points +X (toward center zone for press-fit assembly).
+    # --- Integrated manifold trough ---
+    # All 6 outlet tubes converge here. Trough floor slopes toward 2 exit holes
+    # at Y=+15 and Y=+25 (both in mixing well). Fluid flows by gravity to the
+    # exit holes, which pass through the divider into the mixing well.
+    #
+    # Cut INTO the center-zone face of the divider wall (does not protrude).
+    # Open face points +X (toward center zone for drop-in assembly).
+    # Trough spans Y=-40 to Y=+40 to catch tubes from all pump Y positions.
     _divider_cz_face_x = DIVIDER_WET_X + WALL_INNER / 2
     _trough_cx = _divider_cz_face_x + TUBE_TROUGH_D / 2  # center of cut in X
+
+    # Main trough cavity (full height envelope — slope is achieved by filling below)
     _trough_height = TUBE_TROUGH_Z_TOP - TUBE_TROUGH_Z_BOT
     tube_trough = (
         cq.Workplane("XY")
@@ -785,6 +813,11 @@ def build_base():
                     (TUBE_TROUGH_Z_TOP + TUBE_TROUGH_Z_BOT) / 2))
     )
     base = base.cut(tube_trough)
+
+    # Tube management trough floor — flat bottom (no slope needed since physical
+    # tubes carry fluid, not open-channel gravity flow). The trough simply
+    # organizes/contains the 6 silicone tubes as they route toward their
+    # individual pass-through holes in the divider wall.
 
     # Trough side walls (left and right in Y, to keep tubes contained)
     for _tw_side in [-1, 1]:
@@ -2266,42 +2299,44 @@ def build_components():
     _orange_w = (1.0, 0.55, 0.1, 0.85)
 
     # --- Atomizer wires (magenta): atomizer → floor → up divider → across → tray ---
+    # All routing at Y=ATM_WIRE_Y (+25), within the mixing well.
     _atm_chase_x = DIVIDER_WET_X - WALL_INNER / 2 - CHANNEL_W / 2
 
-    # Segment 1: floor run (atomizer to divider base)
+    # Segment 1: floor run (atomizer to divider base, at Y=ATM_WIRE_Y)
     atm_w1 = (
         cq.Workplane("XY")
         .box(abs(_atm_chase_x - ATOMIZER_POS_X), _wire_t, _wire_t)
-        .translate(((ATOMIZER_POS_X + _atm_chase_x) / 2, 0, FLOOR_H + CHANNEL_D / 2))
+        .translate(((ATOMIZER_POS_X + _atm_chase_x) / 2, ATM_WIRE_Y, FLOOR_H + CHANNEL_D / 2))
     )
     parts["wire_atm_floor"] = (atm_w1, _magenta)
 
-    # Segment 2: vertical chase up divider wall (wet side)
+    # Segment 2: vertical chase up divider wall (wet side, at Y=ATM_WIRE_Y)
     _atm_chase_z_bot = FLOOR_H
     _atm_chase_z_top = FLOOR_H + 45
     atm_w2 = (
         cq.Workplane("XY")
         .box(_wire_t, _wire_t, _atm_chase_z_top - _atm_chase_z_bot)
-        .translate((_atm_chase_x, 0, (_atm_chase_z_bot + _atm_chase_z_top) / 2))
+        .translate((_atm_chase_x, ATM_WIRE_Y, (_atm_chase_z_bot + _atm_chase_z_top) / 2))
     )
     parts["wire_atm_vertical"] = (atm_w2, _magenta)
 
-    # Segment 3: cross divider (above water line, Z=48)
+    # Segment 3: cross divider (above water line, Z=48, at Y=ATM_WIRE_Y)
     atm_w3 = (
         cq.Workplane("XY")
         .box(WALL_INNER + 2, _wire_t, _wire_t)
-        .translate((DIVIDER_WET_X, 0, _atm_chase_z_top + WIRE_PORT_H / 2))
+        .translate((DIVIDER_WET_X, ATM_WIRE_Y, _atm_chase_z_top + WIRE_PORT_H / 2))
     )
     parts["wire_atm_cross"] = (atm_w3, _magenta)
 
     # Segment 4: center zone side, drop DOWN from cross port (Z=48) to tray (Z=34)
+    # At Y=ATM_WIRE_Y on center zone side, then horizontal jog to tray
     _atm_center_x = DIVIDER_WET_X + WALL_INNER / 2 + 1
     _atm_seg4_height = abs(_atm_chase_z_top - _tray_floor_z)
     if _atm_seg4_height > 0.5:
         atm_w4 = (
             cq.Workplane("XY")
             .box(_wire_t, _wire_t, _atm_seg4_height)
-            .translate((_atm_center_x, 0,
+            .translate((_atm_center_x, ATM_WIRE_Y,
                         (min(_atm_chase_z_top, _tray_floor_z) + max(_atm_chase_z_top, _tray_floor_z)) / 2))
         )
         parts["wire_atm_to_tray"] = (atm_w4, _magenta)
@@ -2460,55 +2495,84 @@ def build_components():
 
         parts[f"tube_inlet_{i}"] = (tube_solid, _tube_in_color)
 
-    # Outlet tubes: pump → through divider → drip down into reservoir water
+    # Outlet tubes: pump → trough on divider face → pass-through hole → mixing well
     #
-    # Path:
-    #   1. From pump top, horizontal run to divider pass-through hole
-    #   2. Through the divider hole into wet zone
-    #   3. Drop down into the water (to just above floor level)
-    _divider_hole_z = FLOOR_H + (TRAY_Z - FLOOR_H) - 8  # ~24mm
-    _water_drip_z = FLOOR_H + PARTITION_H + 2  # drip above partition wall (into mixing well)
-    _wet_drip_x = ATOMIZER_POS_X  # drip into mixing well (rear chamber)
+    # Path (Approach B — physical tubes pass all the way through):
+    #   1. From pump top, tube runs horizontally to divider face
+    #   2. Tube drops into trough (tube management channel)
+    #   3. Tube runs along trough Y-axis to its assigned pass-through hole
+    #   4. Tube passes through its dedicated hole in the divider into mixing well
+    #   5. Tube terminates inside the mixing well, dripping onto/near atomizer
+    #
+    # Each of the 6 pumps gets its own dedicated pass-through hole.
+    _trough_z = TUBE_HOLE_Z  # tubes route at hole height in trough
+    _wet_drip_x = ATOMIZER_POS_X  # drip target X in mixing well
+    _water_drip_z = FLOOR_H + 5   # tube terminus near floor in mixing well
 
     for i, (px, py) in enumerate(pump_grid_positions):
         _pump_out_z = FLOOR_H + PUMP_BODY_H  # pump output at top
 
+        # Each pump gets its own dedicated pass-through hole (1:1 mapping)
+        _assigned_hole_y = TUBE_HOLE_Y_POSITIONS[i]
+
         out_parts = []
 
-        # Seg 1: vertical from pump top down to divider hole Z
-        if abs(_pump_out_z - _divider_hole_z) > 1:
-            seg_v = (
-                cq.Workplane("XY")
-                .box(_tube_t, _tube_t, abs(_pump_out_z - _divider_hole_z))
-                .translate((px, py, (_pump_out_z + _divider_hole_z) / 2))
-            )
-            out_parts.append(seg_v)
-
-        # Seg 2: horizontal run from pump X to divider at hole Z
+        # Seg 1: horizontal run from pump to divider face (at pump top Z)
         _horiz_len = abs(px - DIVIDER_WET_X)
         if _horiz_len > 1:
             seg_h = (
                 cq.Workplane("XY")
                 .box(_horiz_len, _tube_t, _tube_t)
-                .translate(((px + DIVIDER_WET_X) / 2, py, _divider_hole_z))
+                .translate(((px + DIVIDER_WET_X) / 2, py, _pump_out_z))
             )
             out_parts.append(seg_h)
 
-        # Seg 3: through divider into wet zone (short horizontal)
+        # Seg 2: vertical drop into trough (pump top Z → trough/hole Z)
+        _drop_to_trough = _pump_out_z - _trough_z
+        if _drop_to_trough > 1:
+            seg_drop = (
+                cq.Workplane("XY")
+                .box(_tube_t, _tube_t, _drop_to_trough)
+                .translate((DIVIDER_WET_X, py, (_pump_out_z + _trough_z) / 2))
+            )
+            out_parts.append(seg_drop)
+
+        # Seg 3: Y-run in trough from pump Y toward assigned pass-through hole Y
+        _y_run = abs(_assigned_hole_y - py)
+        if _y_run > 1:
+            seg_y = (
+                cq.Workplane("XY")
+                .box(_tube_t, _y_run, _tube_t)
+                .translate((DIVIDER_WET_X, (py + _assigned_hole_y) / 2, _trough_z))
+            )
+            out_parts.append(seg_y)
+
+        # Seg 4: through divider at pass-through hole (tube enters mixing well)
+        _thru_len = WALL_INNER + 4  # tube passes through wall thickness
         seg_thru = (
             cq.Workplane("XY")
-            .box(abs(_wet_drip_x - DIVIDER_WET_X), _tube_t, _tube_t)
-            .translate(((DIVIDER_WET_X + _wet_drip_x) / 2, py, _divider_hole_z))
+            .box(_thru_len, _tube_t, _tube_t)
+            .translate((DIVIDER_WET_X, _assigned_hole_y, TUBE_HOLE_Z))
         )
         out_parts.append(seg_thru)
 
-        # Seg 4: drip down into reservoir water
-        _drip_h = _divider_hole_z - _water_drip_z
+        # Seg 5: horizontal run inside mixing well toward atomizer
+        _wet_horiz_len = abs(_wet_drip_x - DIVIDER_WET_X) - _thru_len / 2
+        if _wet_horiz_len > 1:
+            seg_wet_h = (
+                cq.Workplane("XY")
+                .box(_wet_horiz_len, _tube_t, _tube_t)
+                .translate(((DIVIDER_WET_X + _wet_drip_x) / 2, _assigned_hole_y, TUBE_HOLE_Z))
+            )
+            out_parts.append(seg_wet_h)
+
+        # Seg 6: drip down inside mixing well (tube terminus near atomizer)
+        _drip_h = TUBE_HOLE_Z - _water_drip_z
         if _drip_h > 1:
             seg_drip = (
                 cq.Workplane("XY")
                 .box(_tube_t, _tube_t, _drip_h)
-                .translate((_wet_drip_x, py, (_divider_hole_z + _water_drip_z) / 2))
+                .translate((_wet_drip_x, _assigned_hole_y, (TUBE_HOLE_Z + _water_drip_z) / 2))
             )
             out_parts.append(seg_drip)
 
@@ -2528,17 +2592,50 @@ def build_components():
     _ch_tube_color = (0.4, 0.9, 0.4, 0.3)   # translucent green (tube paths)
     _ch_wire_color = (0.9, 0.9, 0.3, 0.3)    # translucent yellow (wire paths)
 
-    # --- Tube trough (divider face) ---
+    # --- TUBE ROUTING VISUALIZATION (Approach B) ---
+    # Shows the tube management trough and 6 individual pass-through holes
+    # where physical silicone tubes pass through the divider into the mixing well.
+
     _divider_cz_face_x = DIVIDER_WET_X + WALL_INNER / 2
     _trough_cx = _divider_cz_face_x + TUBE_TROUGH_D / 2
     _trough_height = TUBE_TROUGH_Z_TOP - TUBE_TROUGH_Z_BOT
-    ch_trough = (
+
+    # Trough body visualization (flat-bottom tube management channel)
+    _trough_color = (0.0, 0.9, 0.6, 0.85)  # bright teal-green
+    _trough_floor_thick = 1.5
+    trough_floor = (
         cq.Workplane("XY")
-        .box(TUBE_TROUGH_D - 1, TUBE_TROUGH_Y_SPAN - 2, _trough_height - 1)
-        .translate((_trough_cx, 0,
-                    (TUBE_TROUGH_Z_TOP + TUBE_TROUGH_Z_BOT) / 2))
+        .box(TUBE_TROUGH_D - 0.5, TUBE_TROUGH_Y_SPAN - 2, _trough_floor_thick)
+        .translate((_trough_cx, 0, TUBE_TROUGH_Z_BOT + _trough_floor_thick / 2))
     )
-    parts["channel_tube_trough"] = (ch_trough, _ch_tube_color)
+    # Side walls at Y ends
+    trough_viz_parts = [trough_floor]
+    for _side in [-1, 1]:
+        _wall_y = _side * (TUBE_TROUGH_Y_SPAN / 2)
+        side_wall = (
+            cq.Workplane("XY")
+            .box(TUBE_TROUGH_D, TUBE_TROUGH_WALL, _trough_height)
+            .translate((_trough_cx, _wall_y,
+                        (TUBE_TROUGH_Z_TOP + TUBE_TROUGH_Z_BOT) / 2))
+        )
+        trough_viz_parts.append(side_wall)
+
+    trough_viz = trough_viz_parts[0]
+    for tp in trough_viz_parts[1:]:
+        trough_viz = trough_viz.union(tp)
+    parts["tube_trough"] = (trough_viz, _trough_color)
+
+    # --- Pass-through holes (bright red cylinders through divider) ---
+    _hole_color = (1.0, 0.15, 0.15, 0.95)  # bright red
+    for hi, hole_y in enumerate(TUBE_HOLE_Y_POSITIONS):
+        hole_viz = (
+            cq.Workplane("XY")
+            .workplane(offset=TUBE_HOLE_Z - TUBE_HOLE_DIA / 2)
+            .center(DIVIDER_WET_X, hole_y)
+            .circle(TUBE_HOLE_DIA / 2)
+            .extrude(WALL_INNER + 2)
+        )
+        parts[f"tube_passthrough_{hi}"] = (hole_viz, _hole_color)
 
     # --- Tube bridge (horizontal, right-col to divider) ---
     _bridge_x_start = _pump_right_col_cx + PUMP_BODY_W / 2 + 2
