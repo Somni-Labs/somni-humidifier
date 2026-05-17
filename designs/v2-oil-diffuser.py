@@ -5,7 +5,7 @@ Cyberpunk-styled essential oil diffuser with automated scent blending.
 130x104mm rectangular footprint (fits QIDI Q2 245x255mm bed).
 
 REAL-WORLD BOM — all component dimensions verified from sourcing research:
-  Pumps:     5× JIHPUMP WX3 micro peristaltic (23×35×25mm, 3.7-6V) in 2+3 pump grid
+  Pumps:     6× JIHPUMP WX3 micro peristaltic (23×35×25mm, 3.7-6V) in 3+3 pump grid
   Atomizer:  20mm/113KHz piezo + 35×25mm driver board (5V, 250-400mA)
   MCU:       ESP32 DevKit (55×28mm) — WiFi, 6× GPIO for MOSFETs
   MOSFETs:   8-ch MOSFET driver board (50×26mm, 3.3V logic-level, using 6 ch)
@@ -24,7 +24,7 @@ Electronics tray lifts out for pump access (building Legos assembly).
 
 Base layout (two zones, left to right):
   WET ZONE    (left)    — water reservoir + atomizer mount
-  CENTER ZONE (right)   — two levels: 2+3 pump grid (bottom) + electronics tray (top)
+  CENTER ZONE (right)   — two levels: 3+3 pump grid (bottom) + electronics tray (top)
 
 Top shell layout (two zones, matching base divider):
   MIST+FILL        (left)   — mist chimney + chevron exhaust + water fill chute
@@ -100,12 +100,12 @@ ATOMIZER_MOUNT_DIA = 24  # 20mm piezo + 2mm rim each side
 ATOMIZER_POS_X = -38.1       # centered in narrower wet zone
 ATOMIZER_POS_Y = 29.7        # rear mixing chamber (was 0)
 
-# --- Peristaltic pumps (5x JIHPUMP WX3 micro, 2+3 grid in center zone) ---
+# --- Peristaltic pumps (6x JIHPUMP WX3 micro, 3+3 grid in center zone) ---
 PUMP_BODY_W = 35             # WX3 length oriented along X
 PUMP_BODY_D = 23             # WX3 width oriented along Y
 PUMP_BODY_H = 25             # WX3 height
-PUMP_LEFT_COL_COUNT = 2      # near divider
-PUMP_RIGHT_COL_COUNT = 4     # near outer wall (3 oil + 1 water)
+PUMP_LEFT_COL_COUNT = 3      # near divider (3 oil)
+PUMP_RIGHT_COL_COUNT = 3     # near outer wall (2 oil + 1 water)
 PUMP_TOTAL = PUMP_LEFT_COL_COUNT + PUMP_RIGHT_COL_COUNT  # 6
 PUMP_COL_GAP = 3             # gap between columns (X)
 PUMP_ROW_GAP = 3             # gap between pumps in same column (Y)
@@ -360,7 +360,7 @@ pin_positions = [
     ( MEETING_W / 2 - 15,  MEETING_D / 2 - 15),    # rear-right
 ]
 
-# Pump grid positions (2+3 layout)
+# Pump grid positions (3+3 layout)
 # Center zone boundaries at meeting line
 _center_inner_left = DIVIDER_WET_X + WALL_INNER / 2
 _center_inner_right = MEETING_W / 2 - WALL
@@ -493,7 +493,7 @@ def hex_mesh_cutout(width, height, cell_size, wall_thickness, margin):
 def build_base():
     """Two-zone base: wet (left) | center two-level (right).
 
-    Center zone lower level: 2+3 pump grid.
+    Center zone lower level: 3+3 pump grid.
     Center zone upper level: lift-out electronics tray (separate part).
     """
 
@@ -589,7 +589,7 @@ def build_base():
 
     # --- CENTER ZONE (right of DIVIDER_WET_X) ---
 
-    # 2+3 pump grid pockets
+    # 3+3 pump grid pockets
     for px, py in pump_grid_positions:
         pump_pocket = (
             cq.Workplane("XY")
@@ -2065,9 +2065,9 @@ def build_components():
     """Build simplified solid models of all internal components at their
     installed positions. Returns a dict of {name: (solid, color)}.
 
-    V3.3 Layout (2+3 pump grid, 3+2 bottle grid):
+    V3.3 Layout (3+3 pump grid, 3+2 bottle grid):
       Wet zone: atomizer piezo disk, water
-      Center zone (lower): 5x pumps in 2+3 grid
+      Center zone (lower): 6x pumps in 3+3 grid
       Center zone (upper / tray): ESP32, MOSFET, PD+Buck, atomizer driver, BME280
       Top shell: 5x bottles hanging from ceiling wells in 3+2 grid
     """
@@ -2134,7 +2134,7 @@ def build_components():
     parts["water"] = (water, (0.15, 0.4, 0.85, 0.25))  # translucent blue
 
     # =============================================
-    # CENTER ZONE — Lower level (pumps, 2+3 grid)
+    # CENTER ZONE — Lower level (pumps, 3+3 grid)
     # =============================================
 
     for i, (px, py) in enumerate(pump_grid_positions):
@@ -2979,7 +2979,7 @@ print("Somni Oil Diffuser V3.3 — Compact Grid")
 print("=" * 60)
 print()
 print(f"Three-part: base ({BASE_W}x{BASE_D}mm) + electronics tray + top shell")
-print("Zones: wet | center (2-level: 2+3 pump grid + electronics tray)")
+print("Zones: wet | center (2-level: 3+3 pump grid + electronics tray)")
 print("Top shell: mist+fill | bottles+storage (3+2 grid)")
 print("Assembly: 1) pumps -> 2) tray -> 3) boards -> 4) top shell (bottles pre-loaded)")
 print()
@@ -3006,7 +3006,7 @@ print(f"  Reservoir: depth={RESERVOIR_DEPTH:.1f}mm")
 print(f"  Atomizer:  {ATOMIZER_MOUNT_DIA}mm at ({ATOMIZER_POS_X}, {ATOMIZER_POS_Y})")
 print()
 print(f"CENTER ZONE: X={_center_left:.1f} to {_center_right:.1f}mm ({_center_right - _center_left:.0f}mm wide)  [AMBER]")
-print(f"  Lower:     {PUMP_TOTAL}x WX3 pumps in 2+3 grid")
+print(f"  Lower:     {PUMP_TOTAL}x WX3 pumps in 3+3 grid")
 print(f"  Left col:  {PUMP_LEFT_COL_COUNT} pumps at X={_pump_left_col_cx:.1f}")
 print(f"  Right col: {PUMP_RIGHT_COL_COUNT} pumps at X={_pump_right_col_cx:.1f}")
 print(f"  Upper:     Electronics tray (lift-out, Z={TRAY_Z}mm)")
@@ -3032,7 +3032,7 @@ print(f"  Row 2 (2): X={_bottle_row2_cx:.1f}, Y={[f'{y:.0f}' for y in _bottle_ro
 print(f"  Bottles drop into threaded collar inserts (M22x2.5, O-ring + lip retention)")
 print()
 print(f"--- Assembly (building Legos) ---")
-print(f"1. Drop pumps into center zone pockets (2+3 grid, shelf ledges hold them)")
+print(f"1. Drop pumps into center zone pockets (3+3 grid, shelf ledges hold them)")
 print(f"2. Set electronics tray on ledges (left divider + right wall, tabs locate it)")
 print(f"3. Drop boards into tray pockets (rail slots + snap tabs)")
 print(f"4. Load bottles cap-down into top shell ceiling wells (3+2 grid)")
